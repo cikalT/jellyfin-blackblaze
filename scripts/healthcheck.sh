@@ -59,7 +59,11 @@ if mountpoint -q "${MEDIA_MOUNT:-}" 2>/dev/null; then
   if [[ -n "$(ls -A "$MEDIA_MOUNT" 2>/dev/null)" ]]; then
     ok "mount berisi $(find "$MEDIA_MOUNT" -maxdepth 1 -mindepth 1 2>/dev/null | wc -l | tr -d ' ') entri teratas"
   else
-    bad "$MEDIA_MOUNT ter-mount tapi kosong — cek nama bucket dan izin kunci"
+    # Bukan kegagalan: bucket yang memang belum diisi wajar terlihat kosong.
+    # Melaporkannya sebagai GAGAL membuat orang mengira setup rusak padahal
+    # yang kurang cuma media.
+    note "$MEDIA_MOUNT kosong — normal kalau belum upload apa pun.
+          Kalau sudah upload, berarti nama bucket atau izin kunci salah."
   fi
 else
   bad "${MEDIA_MOUNT:-<MEDIA_MOUNT tidak diset>} tidak ter-mount"
