@@ -1,0 +1,46 @@
+name: jellyfin-b2
+
+services:
+  jellyfin:
+    image: ${JELLYFIN_IMAGE}
+    container_name: jellyfin
+    user: "${JELLYFIN_UID}:${JELLYFIN_GID}"
+    restart: unless-stopped
+
+    # 2 GB RAM total. Tanpa batas ini, scan library yang boros bisa memicu
+    # OOM killer dan korbannya sering sshd — yang berarti kita terkunci
+    # dari server.
+    mem_limit: ${JELLYFIN_MEM_LIMIT}
+
+    environment:
+      TZ: ${TZ}
+      JELLYFIN_PublishedServerUrl: ${JELLYFIN_PUBLISHED_URL}
+      # Membatasi berapa banyak byte yang dibaca ffprobe per file saat scan.
+      # Default Jellyfin jauh lebih besar; di atas mount B2 itu berarti
+      # menarik ratusan MB per judul hanya untuk mendeteksi codec.
+      JELLYFIN_FFmpeg__probesize: 10M
+      JELLYFIN_FFmpeg__analyzeduration: 5M
+
+    # HANYA localhost. Paparan ke tailnet dilakukan `tailscale serve`.
+    # Mengubah ini jadi 0.0.0.0 mengekspos Jellyfin ke internet publik.
+    ports:
+      - "${JELLYFIN_BIND}:${JELLYFIN_PORT}:8096"
+
+    volumes:
+      - ${JELLYFIN_DATA}/config:/config
+      - ${JELLYFIN_DATA}/cache:/cache
+      - type: bind
+        source: ${MEDIA_MOUNT}
+        target: /media
+        read_only: true
+        bind:
+          # Wajib. Mount FUSE dipasang di host SESUDAH namespace container
+          # dibuat; tanpa rslave, container melihat direktori kosong
+          # selamanya dan Jellyfin mengira seluruh library terhapus.
+          propagation: rslave
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
