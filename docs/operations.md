@@ -19,9 +19,27 @@ akan menolak jalan dengan pesan yang menunjuk ke sini, bukan sekadar
     ./scripts/quota-check.sh        # pemakaian bandwidth bulan ini
     ./scripts/refresh-library.sh    # setelah upload file baru
 
-## Mount hilang atau library terlihat kosong
+## Mount hilang atau rclone-b2 gagal start
 
-    systemctl status rclone-b2
+    ./scripts/debug-mount.sh
+
+Ini memunculkan alasan sesungguhnya, bukan sekadar "control process exited
+with error code". Yang dilakukannya, berurutan:
+
+1. Memeriksa prasyarat FUSE — `/dev/fuse`, `fusermount3`, `user_allow_other`
+2. Menguji akses B2 **tanpa mount**, sehingga kegagalan kredensial terpisah
+   jelas dari kegagalan FUSE — dari luar keduanya terlihat sama
+3. Menjalankan perintah mount **yang diambil dari unit terpasang** di
+   foreground dengan `-vv`, selama 20 detik
+
+Langkah 3 penting: perintahnya dibaca dari `/etc/systemd/system/rclone-b2.service`,
+bukan ditulis ulang di dalam skrip. Menyalinnya berarti skrip bisa menguji
+perintah yang berbeda dari yang sungguhan dijalankan systemd.
+
+Kalau rclone bertahan 20 detik tanpa keluar, mount-nya sehat dan masalahnya
+ada di systemd — barulah lihat log:
+
+    systemctl status rclone-b2 --no-pager -l
     journalctl -u rclone-b2 -n 50 --no-pager
 
 Penyebab paling umum, berurutan:

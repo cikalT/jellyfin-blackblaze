@@ -51,7 +51,8 @@ security group Tencent, daftarkan device pertama dengan
 | [scripts/preflight.sh](scripts/preflight.sh) | Validasi tanpa mengubah apa pun. |
 | [scripts/add-client.sh](scripts/add-client.sh) | Daftarkan device baru ke WireGuard, cetak QR code. |
 | [scripts/refresh-library.sh](scripts/refresh-library.sh) | Membuat file yang baru diupload langsung muncul. |
-| [scripts/healthcheck.sh](scripts/healthcheck.sh) | Mount, container, disk. |
+| [scripts/healthcheck.sh](scripts/healthcheck.sh) | Mount, container, disk, sampai mana bootstrap berhasil. |
+| [scripts/debug-mount.sh](scripts/debug-mount.sh) | Saat rclone-b2 gagal start: memunculkan alasan sesungguhnya. |
 | [scripts/quota-check.sh](scripts/quota-check.sh) | Pemakaian bandwidth bulan ini. |
 
 ## Konfigurasi

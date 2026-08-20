@@ -61,3 +61,18 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 else
   printf '  \033[2mlewat\033[0m systemd-analyze (bukan Linux)\n'
 fi
+
+# ── debug-mount.sh harus menguji perintah yang SUNGGUHAN dipakai systemd ────
+DM="$ROOT/scripts/debug-mount.sh"
+assert_ok "debug-mount.sh ada"        "[[ -f '$DM' ]]"
+assert_ok "debug-mount.sh executable" "[[ -x '$DM' ]]"
+if [[ -f "$DM" ]]; then
+  _dm="$(cat "$DM")"
+  # Membaca ExecStart dari unit, bukan menuliskan ulang flag-flagnya.
+  assert_contains "membaca ExecStart dari unit terpasang" "$_dm" "ExecStart="
+  assert_fail "tidak menyalin flag rclone sendiri" \
+    "grep -vE '^[[:space:]]*#' '$DM' | grep -q -- '--vfs-cache-mode'"
+  # Memisahkan kegagalan auth dari kegagalan FUSE — tanpa itu keduanya
+  # terlihat sama dari luar.
+  assert_contains "menguji akses B2 terpisah dari mount" "$_dm" "lsd"
+fi
