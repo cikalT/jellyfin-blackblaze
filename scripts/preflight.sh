@@ -41,16 +41,27 @@ check_config() {
               MEDIA_MOUNT VFS_CACHE_DIR VFS_CACHE_MAX_SIZE DIR_CACHE_TIME \
               RCLONE_RC_ADDR JELLYFIN_IMAGE JELLYFIN_BIND JELLYFIN_PORT \
               JELLYFIN_MEM_LIMIT JELLYFIN_UID JELLYFIN_GID JELLYFIN_DATA \
-              TZ TS_HOSTNAME MONTHLY_QUOTA_GB QUOTA_WARN_PERCENT NET_INTERFACE
+              TZ MONTHLY_QUOTA_GB QUOTA_WARN_PERCENT NET_INTERFACE \
+              WG_INTERFACE WG_PORT WG_SUBNET WG_SERVER_IP WG_ENDPOINT WG_CLIENT_DIR
 
-  # Setup ini dirancang tanpa apa pun yang menghadap internet. Bind selain
-  # localhost membuang seluruh model keamanannya, jadi kita menolak keras
-  # alih-alih memperingatkan.
-  [[ "$JELLYFIN_BIND" == "127.0.0.1" ]] || die \
-    "JELLYFIN_BIND adalah '$JELLYFIN_BIND', harus 127.0.0.1.
-    Desain ini memaparkan Jellyfin lewat 'tailscale serve', bukan dengan
-    membuka port. Nilai lain mengekspos Jellyfin ke internet tanpa reverse
-    proxy, tanpa rate limiting, dan tanpa fail2ban."
+  # Jellyfin hanya boleh mendengar di interface WireGuard. Satu-satunya
+  # pintu masuk adalah tunnel; tidak ada reverse proxy, rate limiting, atau
+  # fail2ban yang melindunginya kalau bind-nya salah.
+  [[ "$JELLYFIN_BIND" == "$WG_SERVER_IP" ]] || die \
+    "JELLYFIN_BIND ('$JELLYFIN_BIND') tidak sama dengan WG_SERVER_IP ('$WG_SERVER_IP').
+    Keduanya harus identik. Kalau berbeda, container gagal start (alamatnya
+    belum ada) atau Jellyfin mendengar di tempat yang bisa dijangkau dari
+    luar tunnel."
+
+  [[ "$WG_SERVER_IP" =~ ^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.) ]] || die \
+    "WG_SERVER_IP ('$WG_SERVER_IP') bukan alamat privat RFC1918.
+    Gunakan sesuatu di 10.x.x.x, 172.16-31.x.x, atau 192.168.x.x."
+
+  # Endpoint dipakai di setiap config client sebagai alamat tujuan dial.
+  # Salah isi berarti config-nya terlihat benar tapi tidak pernah connect.
+  [[ "$WG_ENDPOINT" =~ ^[0-9a-zA-Z.:-]+$ ]] || die \
+    "WG_ENDPOINT ('$WG_ENDPOINT') tidak terlihat seperti IP atau hostname.
+    Isi dengan IP publik VPS — cek dengan: curl -s ifconfig.me"
 
   # Tag mengambang berarti upgrade diam-diam saat container di-recreate —
   # di server 2 GB, upgrade tak terduga adalah cara yang bagus untuk kehilangan
@@ -87,6 +98,33 @@ check_host() {
   local cache_gb="${VFS_CACHE_MAX_SIZE%G}"
   if [[ "$cache_gb" =~ ^[0-9]+$ ]] && (( cache_gb + 10 > free_gb )); then
     die "VFS_CACHE_MAX_SIZE=${VFS_CACHE_MAX_SIZE} terlalu besar untuk ${free_gb} GB yang tersisa"
+  fi
+}
+
+# ── Cek WireGuard ────────────────────────────────────────────────────────────
+
+check_wireguard() {
+  log "Memeriksa WireGuard"
+
+  # Kernel Debian 12 sudah membawa WireGuard, tapi VPS dengan kernel
+  # kustom kadang tidak. Lebih baik ketahuan sekarang.
+  if ! modprobe wireguard 2>/dev/null && [[ ! -d /sys/module/wireguard ]]; then
+    warn "modul kernel wireguard tidak bisa dimuat. wg-quick mungkin gagal.
+    Cek dengan: modinfo wireguard"
+  else
+    info "modul kernel wireguard tersedia"
+  fi
+
+  # Typo di WG_ENDPOINT menghasilkan config client yang terlihat benar tapi
+  # tidak pernah connect — gejala yang sangat sulit didiagnosis dari sisi HP.
+  local detected
+  detected="$(curl -fsS --max-time 10 https://ifconfig.me 2>/dev/null || true)"
+  if [[ -n "$detected" && "$detected" != "$WG_ENDPOINT" ]]; then
+    warn "WG_ENDPOINT diisi '$WG_ENDPOINT' tapi IP publik server terdeteksi '$detected'.
+    Kalau server ini di belakang NAT, itu wajar. Kalau tidak, config client
+    akan dibuat dengan alamat tujuan yang salah dan tidak akan pernah connect."
+  else
+    info "endpoint cocok dengan IP publik: ${WG_ENDPOINT}"
   fi
 }
 
@@ -141,6 +179,7 @@ CFG
 check_config
 if (( CONFIG_ONLY == 0 )); then
   check_host
+  check_wireguard
   check_b2
 fi
 log "Preflight lolos."

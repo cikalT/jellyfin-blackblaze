@@ -4,7 +4,9 @@ Server media Jellyfin di VPS kecil, dengan seluruh file tersimpan di
 Backblaze B2. VPS tidak menyimpan media dan tidak terlibat dalam upload —
 perannya murni menstream.
 
-Akses hanya lewat Tailscale. Tidak ada port yang terbuka ke internet.
+Akses hanya lewat WireGuard. Tidak ada layanan yang terbuka ke internet —
+satu-satunya port yang mendengar adalah UDP WireGuard, yang tak terlihat oleh
+pemindai karena tidak membalas paket tanpa kunci sah.
 
 ## Kendala yang membentuk desain ini
 
@@ -27,8 +29,10 @@ Di VPS Debian 12 yang masih bersih:
     sudo ./scripts/bootstrap.sh --dry-run    # tinjau dulu
     sudo ./scripts/bootstrap.sh
 
-Lalu ikuti tiga langkah manual yang dicetak bootstrap: `tailscale up`,
-`tailscale serve`, dan checklist di [docs/jellyfin-settings.md](docs/jellyfin-settings.md).
+Lalu ikuti tiga langkah manual yang dicetak bootstrap: buka UDP 51820 di
+security group Tencent, daftarkan device pertama dengan
+`sudo ./scripts/add-client.sh hp`, dan kerjakan checklist di
+[docs/jellyfin-settings.md](docs/jellyfin-settings.md).
 
 ## Dokumentasi
 
@@ -44,6 +48,7 @@ Lalu ikuti tiga langkah manual yang dicetak bootstrap: `tailscale up`,
 |---|---|
 | [scripts/bootstrap.sh](scripts/bootstrap.sh) | Provisioning satu perintah. Idempoten. `--dry-run` untuk mengintip. |
 | [scripts/preflight.sh](scripts/preflight.sh) | Validasi tanpa mengubah apa pun. |
+| [scripts/add-client.sh](scripts/add-client.sh) | Daftarkan device baru ke WireGuard, cetak QR code. |
 | [scripts/refresh-library.sh](scripts/refresh-library.sh) | Membuat file yang baru diupload langsung muncul. |
 | [scripts/healthcheck.sh](scripts/healthcheck.sh) | Mount, container, disk. |
 | [scripts/quota-check.sh](scripts/quota-check.sh) | Pemakaian bandwidth bulan ini. |

@@ -2515,3 +2515,66 @@ Ini juga sekarang tertulis di `.env.example`.
 
 Nama lama sengaja dibiarkan di bagian atas plan dan di spec — keduanya
 artefak historis; repo yang menjadi kebenaran.
+
+---
+
+## Perubahan Arsitektur Pasca-Eksekusi: Tailscale → WireGuard
+
+**2026-08-20, setelah Task 1–9 selesai dan ter-push.**
+
+Pengguna melaporkan Tailscale terlalu merepotkan — login sulit. Mula-mula
+mengusulkan "Cloudflare WireGuard", lalu mengklarifikasi maksudnya WireGuard
+murni.
+
+**Kenapa Cloudflare ditolak.** Padanan Tailscale dari Cloudflare adalah Zero
+Trust + WARP, dan itu tetap menuntut enrolment per device — jadi tidak
+menyelesaikan keluhan aslinya sama sekali, sekaligus mengembalikan persoalan
+ToS video Cloudflare yang sudah kami hindari di keputusan #3 spec. Lebih
+banyak bagian bergerak untuk masalah yang tetap tidak terpecahkan.
+
+**Kenapa WireGuard murni menyelesaikannya.** Tidak ada konsep akun sama
+sekali. Satu config per device, dibuat sekali, berlaku selamanya. Tidak ada
+SSO, tidak ada admin console, tidak ada key expiry 180 hari yang justru baru
+kami dokumentasikan sebagai jebakan.
+
+### Yang berubah
+
+| Berkas | Perubahan |
+|---|---|
+| `.env.example` | `TS_HOSTNAME` dihapus; enam variabel `WG_*` ditambahkan; `JELLYFIN_BIND` 127.0.0.1 → 10.8.0.1; `JELLYFIN_PUBLISHED_URL` kini punya default karena alamatnya tetap |
+| `preflight.sh` | Cek bind berubah dari "harus 127.0.0.1" jadi "harus sama dengan `WG_SERVER_IP`" + wajib RFC1918; `check_wireguard()` baru memverifikasi modul kernel dan mencocokkan `WG_ENDPOINT` dengan IP publik sungguhan |
+| `bootstrap.sh` | Instalasi Tailscale → WireGuard; langkah 8 baru membuat kunci server dan `wg0.conf`; `write_once()` baru |
+| `systemd/docker-after-mount.conf` | Diganti nama jadi `docker-after-deps.conf`; kini menunggu `wg-quick@wg0` juga |
+| `scripts/add-client.sh` | **Baru.** Alokasi IP, pembuatan kunci, penerapan tanpa putus, QR code |
+| `docs/client-setup.md` | Ditulis ulang total |
+| `docs/operations.md` | Bagian key expiry Tailscale → diagnosis `wg show` |
+
+### `write_once()` — kenapa perlu helper baru
+
+`write_file()` selalu menimpa, dan itu benar untuk file yang murni turunan
+dari `.env`. Tapi `wg0.conf` **menumpuk state**: `add-client.sh` menambahkan
+blok `[Peer]` ke situ. Menimpanya saat bootstrap dijalankan ulang akan
+menghapus setiap device yang pernah didaftarkan, diam-diam. Hal yang sama
+berlaku untuk kunci privat server — meregenerasinya memutus semua client
+sekaligus.
+
+Keduanya kini dijaga, dan dua assertion mengunci penjagaan itu.
+
+### Dua bug yang ditemukan tes selama migrasi
+
+1. **Assertion mencocokkan komentar sendiri.** `assert_fail "tidak ada
+   MASQUERADE"` gagal karena komentar di `bootstrap.sh` menjelaskan *kenapa*
+   MASQUERADE tidak ada. Kelas bug yang sama persis dengan kasus `0.0.0.0`
+   di Task 3 — diperbaiki dengan cara sama: kecualikan baris komentar.
+
+2. **Assertion prosa terlalu kaku soal kapitalisasi.** `assert_contains`
+   bersifat case-sensitive, sehingga "Tanpa login" di awal kalimat tidak
+   cocok dengan pola `tanpa login`. Alih-alih menulis ulang dokumen supaya
+   sesuai tes, ditambahkan helper `assert_contains_i` — untuk assertion
+   terhadap prosa, kapitalisasi memang tidak seharusnya jadi penentu.
+
+### Hasil
+
+150 tes hijau, `shellcheck -x` bersih di 8 skrip, `host_ip` hasil resolusi
+Docker terverifikasi `10.8.0.1`. Task 10 tetap menunggu VPS, dengan kriteria
+2 dan 3 diperbarui mengikuti arsitektur baru.

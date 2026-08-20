@@ -46,16 +46,21 @@ if [[ -f "$ROOT/docs/media-guidelines.md" ]]; then
 fi
 
 # Panduan client harus menjawab pertanyaan pertama setiap orang: alamat apa
-# yang saya masukkan? Jawabannya nama MagicDNS, bukan IP.
+# yang saya masukkan? Jawabannya IP tetap di dalam tunnel.
 if [[ -f "$ROOT/docs/client-setup.md" ]]; then
   _c="$(cat "$ROOT/docs/client-setup.md")"
-  assert_contains "panduan client menyebut MagicDNS"          "$_c" "MagicDNS"
-  assert_contains "panduan client memberi contoh URL ts.net"  "$_c" ".ts.net"
-  assert_contains "panduan client menyebut batasan smart TV"  "$_c" "webOS"
-  # Kunci device Tailscale kedaluwarsa 180 hari secara default. Kalau itu
-  # terjadi di VPS, Jellyfin hilang dari tailnet tanpa peringatan.
-  assert_contains "panduan client memperingatkan key expiry"  "$_c" "key expiry"
-  assert_contains "panduan client menyebut jangka 180 hari"   "$_c" "180 hari"
+  assert_contains "panduan client memberi alamat Jellyfin"    "$_c" "10.8.0.1:8096"
+  # Inilah alasan WireGuard dipilih menggantikan Tailscale.
+  assert_contains_i "panduan client menegaskan tanpa login"   "$_c" "tanpa login"
+  # Split tunnel harus dijelaskan: kalau pengguna mengubahnya jadi 0.0.0.0/0
+  # sendiri, seluruh browsing mengalir lewat kuota 512 GB VPS.
+  assert_contains_i "panduan client menjelaskan split tunnel" "$_c" "split tunnel"
+  assert_contains "panduan client memperingatkan 0.0.0.0/0"   "$_c" "0.0.0.0/0"
+  # Tanpa port terbuka, tidak ada satu pun client yang bisa menyambung.
+  assert_contains "panduan client menyebut UDP 51820"         "$_c" "51820"
+  assert_contains "panduan client menyebut cara tambah device" "$_c" "add-client.sh"
+  # Tidak boleh ada sisa instruksi Tailscale yang menyesatkan.
+  assert_fail "tidak ada sisa instruksi Tailscale" "grep -qi 'tailscale' '$ROOT/docs/client-setup.md'"
 fi
 
 # Setiap file yang ditautkan README harus benar-benar ada.

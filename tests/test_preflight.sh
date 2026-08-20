@@ -20,7 +20,7 @@ VFS_CACHE_MAX_SIZE=10G
 DIR_CACHE_TIME=1h
 RCLONE_RC_ADDR=127.0.0.1:5572
 JELLYFIN_IMAGE=jellyfin/jellyfin:10.11.11
-JELLYFIN_BIND=127.0.0.1
+JELLYFIN_BIND=10.8.0.1
 JELLYFIN_PORT=8096
 JELLYFIN_MEM_LIMIT=1200m
 JELLYFIN_UID=1000
@@ -29,7 +29,12 @@ JELLYFIN_DATA=/opt/jellyfin
 TZ=Asia/Jakarta
 JELLYFIN_API_KEY=
 JELLYFIN_PUBLISHED_URL=
-TS_HOSTNAME=jellyfin
+WG_INTERFACE=wg0
+WG_PORT=51820
+WG_SUBNET=10.8.0.0/24
+WG_SERVER_IP=10.8.0.1
+WG_ENDPOINT=203.0.113.10
+WG_CLIENT_DIR=/etc/wireguard/clients
 MONTHLY_QUOTA_GB=512
 QUOTA_WARN_PERCENT=80
 NET_INTERFACE=eth0
@@ -52,7 +57,12 @@ if [[ -x "$PF" ]]; then
   _public="$(_mkenv)"; sed -i.bak 's/^JELLYFIN_BIND=.*/JELLYFIN_BIND=0.0.0.0/' "$_public"
   assert_fail "bind 0.0.0.0 ditolak" "'$PF' --config-only --env-file '$_public'"
   _msg2="$( "$PF" --config-only --env-file "$_public" 2>&1 || true )"
-  assert_contains "pesan menjelaskan risiko bind" "$_msg2" "127.0.0.1"
+  assert_contains "pesan menjelaskan risiko bind" "$_msg2" "WG_SERVER_IP"
+
+  # Endpoint publik wajib: tanpa itu config client tidak punya alamat tujuan.
+  _noep="$(_mkenv)"; sed -i.bak 's/^WG_ENDPOINT=.*/WG_ENDPOINT=/' "$_noep"
+  assert_fail "WG_ENDPOINT kosong ditolak" "'$PF' --config-only --env-file '$_noep'"
+  rm -f "$_noep" "$_noep.bak"
 
   # Image tidak ter-pin harus ditolak.
   _latest="$(_mkenv)"; sed -i.bak 's|^JELLYFIN_IMAGE=.*|JELLYFIN_IMAGE=jellyfin/jellyfin:latest|' "$_latest"

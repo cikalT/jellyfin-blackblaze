@@ -42,7 +42,22 @@ assert_contains "memperingatkan bukan master Account ID" "$_envx_body" "BUKAN ma
 assert_contains "menjelaskan nama bucket bukan bucket ID" "$_envx_body" "bukan bucket ID"
 
 # Batasan keras dari spec, dikunci di sini supaya tidak diam-diam berubah.
-assert_ok "bind Jellyfin adalah 127.0.0.1" "grep -qE '^JELLYFIN_BIND=127\.0\.0\.1$' '$ENVX'"
+# Jellyfin harus mendengar HANYA di alamat WireGuard. Kalau kedua nilai ini
+# berbeda, Jellyfin bind ke alamat yang tidak ada (container gagal start) atau
+# ke alamat yang bisa dijangkau dari luar tunnel.
+_bind="$(grep -E '^JELLYFIN_BIND=' "$ENVX" | cut -d= -f2)"
+_wgip="$(grep -E '^WG_SERVER_IP=' "$ENVX" | cut -d= -f2)"
+assert_eq "JELLYFIN_BIND sama dengan WG_SERVER_IP" "$_bind" "$_wgip"
+assert_fail "bind bukan 0.0.0.0" "[[ '$_bind' == '0.0.0.0' ]]"
+assert_ok   "bind adalah alamat privat RFC1918" \
+  "printf '%s' '$_bind' | grep -qE '^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)'"
+
+# WireGuard: split tunnel dan endpoint wajib terdokumentasi.
+for v in WG_INTERFACE WG_PORT WG_SUBNET WG_SERVER_IP WG_ENDPOINT WG_CLIENT_DIR; do
+  assert_ok "$v ada di .env.example" "grep -qE '^${v}=' '$ENVX'"
+done
+assert_fail "WG_ENDPOINT dibiarkan kosong untuk diisi operator" "grep -qE '^WG_ENDPOINT=.+' '$ENVX'"
+assert_fail "tidak ada sisa TS_HOSTNAME" "grep -q 'TS_HOSTNAME' '$ENVX'"
 assert_ok "dir-cache-time adalah 1h"       "grep -qE '^DIR_CACHE_TIME=1h$'        '$ENVX'"
 assert_ok "cache VFS dibatasi 10G"         "grep -qE '^VFS_CACHE_MAX_SIZE=10G$'   '$ENVX'"
 assert_ok "image Jellyfin di-pin (bukan latest)" "grep -qE '^JELLYFIN_IMAGE=jellyfin/jellyfin:[0-9]+\.[0-9]+\.[0-9]+$' '$ENVX'"
