@@ -2428,3 +2428,69 @@ awalnya memakai `set -euo pipefail` seperti skrip lain, padahal healthcheck
 harus menjalankan SEMUA cek lalu melaporkan, bukan berhenti di kegagalan
 pertama. Skrip itu kini memakai `set -uo pipefail` diikuti `set +e`, dengan
 komentar yang menjelaskan alasannya.
+
+---
+
+## Catatan Eksekusi
+
+Dieksekusi 2026-08-20. Task 1-9 selesai; 111 tes hijau, `shellcheck -x`
+bersih di seluruh skrip. Task 10 menunggu VPS.
+
+Plan ini adalah artefak historis — **repo yang menjadi kebenaran**. Enam
+penyimpangan ditemukan saat eksekusi. Semuanya dicatat di sini alih-alih
+menulis ulang plan diam-diam, karena selisihnya justru informasi yang
+berguna.
+
+### 1. Bug quoting: `'$PF'` di dalam `$( )`
+
+Plan menulis `_msg="$( '$PF' --config-only ... )"`. Di dalam substitusi
+perintah, kutip tunggal membuat `$PF` menjadi literal, sehingga shell mencari
+perintah bernama `$PF`. Yang benar `"$PF"`. Sama untuk `'$BS'` di
+`test_bootstrap.sh`.
+
+Aturannya: di dalam string yang akan di-`eval` oleh `assert_ok`, variabel
+harus diekspansi saat string dibangun; di dalam `$( )` biasa, pakai kutip
+ganda seperti biasa.
+
+### 2. Bug quoting: `\$PATH` di dalam string assertion
+
+`PATH='$_d2:\$PATH'` membuat `PATH` berisi literal `$PATH`, sehingga
+`dirname` tidak ditemukan dan skrip mati sebelum sempat diuji. Backslash-nya
+dihapus supaya `$PATH` diekspansi saat string dibangun.
+
+Bug ini menyamar sebagai kegagalan skrip, padahal skripnya benar — persis
+jenis kesalahan yang membuat orang "memperbaiki" kode yang tidak rusak.
+
+### 3. Tes `0.0.0.0` ikut mencocokkan komentar
+
+`assert_fail "tidak ada bind 0.0.0.0"` gagal karena `docker-compose.yml`
+memuat komentar yang memperingatkan bahaya `0.0.0.0`. Assertion diperbaiki
+agar melewati baris komentar: yang dilarang adalah konfigurasinya, bukan
+peringatan tentangnya. Assertion `:latest` diperbaiki dengan cara sama.
+
+### 4. `ls` diganti `find` di bootstrap
+
+shellcheck SC2012. Bukan sekadar formalitas di sini — nama folder film penuh
+spasi dan tanda kurung (`Interstellar (2014)`), persis kasus yang membuat
+`ls` salah.
+
+### 5. `cd` tanpa penjaga di `tests/run.sh`
+
+shellcheck SC2164. Ditambahkan `|| exit 1`.
+
+### 6. Heredoc penutup bootstrap harus tidak dikutip
+
+Plan memakai `<<'NEXT'`, yang membuat instruksi tercetak sebagai
+`--hostname="$TS_HOSTNAME"` secara literal — operator akan menyalin nama
+variabel mentah ke terminal. Diubah ke `<<NEXT` supaya nilainya diekspansi.
+Sebuah assertion ditambahkan untuk mengunci perilaku ini.
+
+### Penambahan di luar plan
+
+- **Konvensi `shellcheck -x`** dipakai, bukan `shellcheck` polos, supaya
+  direktif `# shellcheck source=` diikuti dan SC1091 tidak muncul.
+- **`docs/client-setup.md` diperluas** dengan bagian key expiry Tailscale,
+  setelah pertanyaan pengguna saat eksekusi. Kunci device kedaluwarsa tiap
+  180 hari secara default; kalau itu terjadi di VPS, Jellyfin lenyap dari
+  tailnet tanpa peringatan. Dua assertion ditambahkan agar peringatan ini
+  tidak bisa hilang dari dokumentasi.
