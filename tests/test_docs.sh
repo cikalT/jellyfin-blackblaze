@@ -32,6 +32,17 @@ if [[ -f "$ROOT/docs/media-guidelines.md" ]]; then
   for term in "H.264" "AAC" "SRT" "HEVC"; do
     assert_contains "panduan media menyebut '$term'" "$_m" "$term"
   done
+
+  # Aturan penamaan yang BENAR-BENAR mengikat. Nama folder teratas bebas —
+  # yang menentukan pencocokan metadata adalah struktur di dalam tiap judul.
+  # Kalau salah satu dari ini hilang dari dokumen, orang akan mengupload
+  # dengan struktur yang tidak dikenali Jellyfin.
+  assert_contains "panduan media menjelaskan penanda season/episode" "$_m" "S01E01"
+  assert_contains "panduan media menjelaskan subfolder season"       "$_m" "Season 01"
+  assert_contains "panduan media mewajibkan tahun dalam kurung"      "$_m" "(2014)"
+  # Dan harus eksplisit bahwa folder teratas TIDAK mengikat, supaya tidak
+  # ada lagi yang mengira 'Movies/' itu keharusan.
+  assert_contains "panduan media menyatakan folder teratas bebas"    "$_m" "Folder teratas: bebas"
 fi
 
 # Panduan client harus menjawab pertanyaan pertama setiap orang: alamat apa

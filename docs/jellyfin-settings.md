@@ -28,14 +28,56 @@ scan pertama sudah terlanjur berjalan dengan setting bawaan.
 
 ## 2. Saat menambahkan tiap library
 
-Tambahkan dua library, keduanya menunjuk ke dalam mount:
+### Yang bebas kamu tentukan
 
-| Library | Tipe konten | Folder |
-|---|---|---|
-| Film | Movies | `/media/Movies` |
-| Serial | TV Shows | `/media/Shows` |
+Jellyfin **tidak punya aturan** soal nama folder teratas. Tiga hal ini
+sepenuhnya pilihanmu:
 
-Untuk **masing-masing**, di layar penambahan library:
+- **Nama library** — yang tampil di menu. `Film`, `Movies`, `Koleksi`, apa saja.
+- **Nama folder di B2** — `Movies/`, `film/`, `video/bioskop/`, terserah.
+- **Berapa library** — boleh satu per genre, satu per bahasa, atau cuma satu
+  untuk semuanya. Satu library juga boleh menunjuk ke beberapa folder sekaligus.
+
+Yang penting cuma: path yang kamu isi di Jellyfin harus cocok dengan folder
+yang benar-benar ada di bucket, dengan `/media` sebagai prefiks. Folder
+`Koleksi Film/` di B2 berarti path `/media/Koleksi Film`.
+
+### Yang mengikat
+
+Dua hal, dan keduanya karena Jellyfin memakainya untuk mencocokkan metadata:
+
+**1. Content type harus benar.** Ini bukan label — ini yang menentukan aturan
+penamaan mana yang dipakai Jellyfin saat memindai. Salah pilih, judulnya tidak
+akan dikenali sama sekali.
+
+| Isi folder | Content type yang harus dipilih |
+|---|---|
+| Film | Movies |
+| Serial / anime bersambung | TV Shows |
+| Musik | Music |
+
+**2. Jangan campur film dan serial dalam satu library.** Aturan penamaan
+keduanya berbeda; dicampur berarti sebagian besar tidak akan cocok.
+
+Struktur di *dalam* tiap judul juga mengikat — itu dijelaskan terpisah di
+[media-guidelines.md](media-guidelines.md), karena berlaku saat upload,
+bukan saat setup library.
+
+### Contoh yang dipakai dokumentasi ini
+
+Sekadar titik awal, bukan keharusan:
+
+| Nama library | Content type | Path di Jellyfin | Folder di B2 |
+|---|---|---|---|
+| Film | Movies | `/media/Movies` | `Movies/` |
+| Serial | TV Shows | `/media/Shows` | `Shows/` |
+
+Kalau kamu pakai nama lain, sesuaikan juga contoh di dokumen lain — tidak ada
+yang rusak, cuma contohnya jadi tidak cocok dengan punyamu.
+
+### Setting untuk tiap library
+
+Untuk **masing-masing** library, di layar penambahan:
 
 - [ ] Enable real time monitoring: **mati**
       *FUSE tidak punya inotify yang benar; ini memicu rescan berulang.*

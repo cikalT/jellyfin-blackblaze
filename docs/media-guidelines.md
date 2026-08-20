@@ -38,18 +38,42 @@ Di PC Windows, dengan HandBrake atau ffmpeg:
 
 ## Struktur folder di B2
 
-Jellyfin mengenali judul dari nama folder dan file. Tahun dalam kurung wajib.
+Bedakan dua lapis ini — cuma satu yang mengikat.
 
-    Movies/
+**Folder teratas: bebas.** `Movies/`, `film/`, `koleksi/2024/` — Jellyfin tidak
+peduli. Yang penting path yang kamu isi saat membuat library cocok dengan
+folder yang ada di bucket. Contoh di bawah pakai `Movies/` dan `Shows/` hanya
+supaya konsisten dengan dokumen lain.
+
+**Di dalam tiap judul: mengikat.** Dari sinilah Jellyfin mencocokkan metadata.
+Salah struktur, judulnya tidak dikenali dan muncul tanpa poster, sinopsis,
+atau pengelompokan season.
+
+### Film
+
+    <folder pilihanmu>/
       Interstellar (2014)/
         Interstellar (2014).mkv
         Interstellar (2014).id.srt
 
-    Shows/
+Aturannya: satu folder per film, nama folder = `Judul (Tahun)`, nama file sama
+dengan nama foldernya. **Tahun dalam kurung wajib** — tanpa itu pencocokan
+sering meleset ke film lain berjudul mirip.
+
+### Serial
+
+    <folder pilihanmu>/
       Severance (2022)/
         Season 01/
           Severance (2022) S01E01.mkv
           Severance (2022) S01E02.mkv
 
-Nama file subtitle harus sama persis dengan file videonya, ditambah kode
-bahasa: `.id.srt` untuk Indonesia, `.en.srt` untuk Inggris.
+Aturannya: satu folder per serial, lalu subfolder `Season 01`, `Season 02`
+(angka dua digit), lalu file dengan penanda `S01E01`. Penanda inilah yang
+dibaca Jellyfin — teks di sekitarnya boleh apa saja, tapi konsisten lebih baik.
+
+### Subtitle
+
+Nama file subtitle harus **sama persis** dengan file videonya, ditambah kode
+bahasa sebelum ekstensi: `.id.srt` untuk Indonesia, `.en.srt` untuk Inggris.
+Beda satu karakter saja, subtitle tidak akan terdeteksi.

@@ -31,7 +31,10 @@ menagih biaya upload.
 
 1. Rapikan file di PC sesuai `media-guidelines.md` — struktur folder harus
    sudah benar **sebelum** diupload, karena merapikan di B2 jauh lebih repot.
-2. Drag folder `Interstellar (2014)` ke dalam `Movies/` di Cyberduck.
+2. Drag folder `Interstellar (2014)` ke dalam folder film di bucket —
+   `Movies/` kalau kamu pakai nama itu, atau nama apa pun yang kamu pilih
+   saat membuat library. Yang mengikat struktur di dalam folder judulnya,
+   bukan nama folder teratasnya.
 3. Tunggu selesai. Cyberduck bisa melanjutkan upload yang terputus.
 4. Di VPS, buat file langsung terlihat:
 
