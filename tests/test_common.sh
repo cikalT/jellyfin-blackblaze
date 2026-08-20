@@ -35,6 +35,20 @@ rm -f "$_tmp"
 _root="$( . "$LIB"; repo_root )"
 assert_ok       "repo_root menemukan root repo"    "[[ -d '$_root/scripts' ]]"
 
+# ── require_bootstrap ────────────────────────────────────────────────────────
+# Perkakas yang dipasang bootstrap butuh pesan yang berbeda dari perkakas yang
+# memang harus sudah ada. "perintah tidak ditemukan: wg" secara teknis benar
+# tapi menyesatkan — yang perlu dilakukan pengguna adalah menjalankan bootstrap.
+assert_fail "require_bootstrap gagal untuk perkakas yang hilang" \
+  ". '$LIB'; require_bootstrap definitely_not_real_xyz 'langkah 5/10'"
+assert_ok   "require_bootstrap lolos untuk perkakas yang ada" \
+  ". '$LIB'; require_bootstrap bash 'langkah 5/10'"
+
+_bmsg="$( . "$LIB"; require_bootstrap definitely_not_real_xyz 'langkah 5/10' 2>&1 || true )"
+assert_contains "pesan menyuruh menjalankan bootstrap" "$_bmsg" "bootstrap.sh"
+assert_contains "pesan menyebut langkah yang gagal"    "$_bmsg" "langkah 5/10"
+assert_contains "pesan menyarankan healthcheck"        "$_bmsg" "healthcheck.sh"
+
 # ── Guard: tidak boleh ada string berbentuk kunci di repo ────────────────────
 # Pemindai rahasia mencocokkan BENTUK, bukan makna. Nilai dummy yang
 # menyerupai kunci sungguhan memicu insiden palsu, dan repo yang rutin

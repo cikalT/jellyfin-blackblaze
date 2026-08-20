@@ -28,6 +28,31 @@ ok()   { printf '  \033[0;32mok\033[0m    %s\n' "$*"; }
 bad()  { printf '  \033[0;31mGAGAL\033[0m %s\n' "$*"; FAILED=1; }
 note() { printf '  \033[0;33mcatatan\033[0m %s\n' "$*"; }
 
+log "Prasyarat bootstrap"
+_incomplete=0
+_need() {
+  local label="$1" probe="$2" step="$3"
+  if eval "$probe" >/dev/null 2>&1; then
+    ok "$label"
+  else
+    bad "$label — belum ada (bootstrap langkah $step)"
+    _incomplete=1
+  fi
+}
+_need "docker terpasang"          "command -v docker"        "5/10"
+_need "rclone terpasang"          "command -v rclone"        "5/10"
+_need "wireguard terpasang"       "command -v wg"            "5/10"
+_need "kredensial /etc/jellyfin-b2/env" "[[ -f /etc/jellyfin-b2/env ]]" "7/10"
+_need "config /etc/rclone/rclone.conf"  "[[ -f /etc/rclone/rclone.conf ]]" "7/10"
+_need "kunci server WireGuard"    "[[ -f /etc/wireguard/server.key ]]" "8/10"
+_need "unit rclone-b2 terpasang"  "[[ -f /etc/systemd/system/rclone-b2.service ]]" "9/10"
+
+if (( _incomplete )); then
+  printf '\n'
+  note "Bootstrap belum selesai. Jalankan: sudo ./scripts/bootstrap.sh"
+  printf '\n'
+fi
+
 log "Mount"
 if mountpoint -q "${MEDIA_MOUNT:-}" 2>/dev/null; then
   ok "$MEDIA_MOUNT ter-mount"

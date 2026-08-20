@@ -53,7 +53,7 @@ done
 
 load_env "$ENV_FILE"
 require_env WG_INTERFACE WG_PORT WG_SUBNET WG_SERVER_IP WG_ENDPOINT WG_CLIENT_DIR JELLYFIN_PORT
-require_cmd wg
+require_bootstrap wg "langkah 5/10 (Runtime)"
 
 WG_CONF="${WG_CONF:-/etc/wireguard/${WG_INTERFACE}.conf}"
 [[ -f "$WG_CONF" ]]    || die "config server tidak ditemukan: $WG_CONF (jalankan bootstrap.sh dulu)"

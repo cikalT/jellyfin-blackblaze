@@ -19,7 +19,8 @@ done
 
 load_env "$ENV_FILE"
 require_env NET_INTERFACE MONTHLY_QUOTA_GB QUOTA_WARN_PERCENT
-require_cmd vnstat python3
+require_bootstrap vnstat "langkah 2/10 (Paket dasar)"
+require_cmd python3
 
 # vnstat 2.x melaporkan byte. Entri bulan terakhir adalah bulan berjalan.
 tx_bytes="$(vnstat --json m -i "$NET_INTERFACE" 2>/dev/null \

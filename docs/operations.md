@@ -1,5 +1,18 @@
 # Runbook Operasional
 
+## Kalau ada yang gagal, mulai dari sini
+
+    ./scripts/healthcheck.sh
+
+Bagian pertama outputnya melaporkan sampai langkah berapa bootstrap
+berhasil. Kalau ada yang merah di situ, itu penyebabnya — jalankan
+`sudo ./scripts/bootstrap.sh` lagi (idempoten, aman diulang) dan perhatikan
+di langkah mana ia berhenti.
+
+Skrip yang dijalankan setelah bootstrap (`add-client.sh`, `quota-check.sh`)
+akan menolak jalan dengan pesan yang menunjuk ke sini, bukan sekadar
+"perintah tidak ditemukan".
+
 ## Perintah harian
 
     ./scripts/healthcheck.sh        # mount, container, disk

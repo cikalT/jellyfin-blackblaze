@@ -70,3 +70,24 @@ ENVF
   assert_contains "healthcheck menyebut mount" "$_hout" "/nonexistent/mount/point"
   rm -f "$_henv"
 fi
+
+# ── Perkakas yang dipasang bootstrap harus pakai require_bootstrap ──────────
+# require_cmd polos menghasilkan "perintah tidak ditemukan: wg", yang benar
+# secara teknis tapi tidak memberitahu pengguna bahwa yang kurang adalah
+# menjalankan bootstrap. Ini pernah membingungkan sungguhan.
+ROOT2="$(cd .. && pwd)"
+for pair in "add-client.sh:wg" "quota-check.sh:vnstat"; do
+  _f="${pair%%:*}"; _c="${pair##*:}"
+  assert_fail "$_f tidak pakai require_cmd polos untuk $_c" \
+    "grep -qE '^require_cmd[^\n]*\\b${_c}\\b' '$ROOT2/scripts/$_f'"
+  assert_ok   "$_f memakai require_bootstrap $_c" \
+    "grep -qE '^require_bootstrap[[:space:]]+${_c}\\b' '$ROOT2/scripts/$_f'"
+done
+
+# healthcheck harus melaporkan sampai mana bootstrap berjalan — ini yang
+# menjadikannya satu perintah diagnosis saat pengguna melapor "gagal".
+if [[ -f "$HC" ]]; then
+  _hc="$(cat "$HC")"
+  assert_contains "healthcheck memeriksa prasyarat bootstrap" "$_hc" "Prasyarat bootstrap"
+  assert_contains "healthcheck menyebut langkah bootstrap"    "$_hc" "5/10"
+fi

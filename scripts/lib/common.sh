@@ -36,6 +36,23 @@ require_env() {
   (( ${#missing[@]} == 0 )) || die "variabel .env kosong atau belum diisi: ${missing[*]}"
 }
 
+# require_bootstrap <cmd> <langkah> — untuk perkakas yang DIPASANG oleh
+# bootstrap. Bedanya dengan require_cmd: pesannya menunjuk ke penyebab
+# sesungguhnya. "perintah tidak ditemukan: wg" secara teknis benar tapi
+# tidak memberitahu bahwa yang perlu dilakukan adalah menjalankan bootstrap.
+require_bootstrap() {
+  local cmd="$1" step="${2:-langkah yang memasangnya}"
+  command -v "$cmd" >/dev/null 2>&1 && return 0
+  die "'$cmd' belum terpasang — bootstrap sepertinya belum selesai.
+
+  Skrip ini dijalankan SETELAH bootstrap. Jalankan dulu:
+      sudo ./scripts/bootstrap.sh
+
+  Kalau bootstrap sudah pernah dijalankan, berarti dia berhenti sebelum
+  ${step}. Untuk melihat sampai mana:
+      ./scripts/healthcheck.sh"
+}
+
 # load_env <path> — meng-export semua isi file env.
 load_env() {
   local f="${1:-}"
