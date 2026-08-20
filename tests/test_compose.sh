@@ -42,7 +42,7 @@ if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; 
   cp "$ROOT/.env.example" "$_fixture/.env"
   # Isi placeholder supaya interpolasi menghasilkan compose yang valid.
   {
-    echo "B2_ACCOUNT_ID=005test"
+    echo "B2_KEY_ID=005test"
     echo "B2_APPLICATION_KEY=Ktest"
     echo "B2_BUCKET=test-bucket"
     echo "JELLYFIN_PUBLISHED_URL=https://jellyfin.example.ts.net"

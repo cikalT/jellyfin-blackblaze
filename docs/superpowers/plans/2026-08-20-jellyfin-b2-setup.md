@@ -2494,3 +2494,24 @@ Sebuah assertion ditambahkan untuk mengunci perilaku ini.
   180 hari secara default; kalau itu terjadi di VPS, Jellyfin lenyap dari
   tailnet tanpa peringatan. Dua assertion ditambahkan agar peringatan ini
   tidak bisa hilang dari dokumentasi.
+
+### 7. `B2_ACCOUNT_ID` diganti `B2_KEY_ID` (pasca-eksekusi)
+
+Ditemukan lewat pertanyaan pengguna: "di env pakainya bucket id atau bucket
+name?"
+
+Dokumentasi rclone menyatakan field `account` harus diisi **applicationKeyId**,
+bukan master Account ID — B2 membalas **401** kalau salah. Nama variabel
+`B2_ACCOUNT_ID` yang saya pilih justru menyuruh operator mengisi nilai yang
+salah, dan gejalanya (401) tidak menunjuk ke penyebabnya sama sekali.
+
+Diganti jadi `B2_KEY_ID` di seluruh file aktif. `.env.example` sekarang
+menyatakan eksplisit "BUKAN master Account ID", dan pesan error `preflight.sh`
+mengurutkan tiga penyebab 401 yang paling mungkin. Empat assertion mengunci
+penjelasan itu di dokumentasi.
+
+Jawaban pertanyaan aslinya: `B2_BUCKET` diisi **nama bucket**, bukan bucket ID.
+Ini juga sekarang tertulis di `.env.example`.
+
+Nama lama sengaja dibiarkan di bagian atas plan dan di spec — keduanya
+artefak historis; repo yang menjadi kebenaran.

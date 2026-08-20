@@ -20,8 +20,9 @@ menagih biaya upload.
 1. Unduh dari https://cyberduck.io — gratis, ada versi Windows.
 2. **Open Connection** → pilih **Backblaze B2** dari dropdown.
 3. Isi:
-   - Account ID / Application Key ID: `B2_ACCOUNT_ID` milikmu
-   - Application Key: `B2_APPLICATION_KEY` milikmu
+   - Account ID / Application Key ID: **applicationKeyId** milikmu
+     (string yang muncul bersama key saat dibuat — bukan master Account ID)
+   - Application Key: string key-nya sendiri
 
    Gunakan key yang **bisa menulis** di sini — key read-only di server
    sengaja dibuat terpisah dan tidak bisa dipakai upload.

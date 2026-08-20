@@ -26,9 +26,20 @@ fi
 
 # Variabel yang tidak boleh punya nilai default terisi — kalau terisi, operator
 # akan menjalankan setup dengan kredensial contoh dan bingung kenapa gagal.
-for v in B2_ACCOUNT_ID B2_APPLICATION_KEY B2_BUCKET; do
+for v in B2_KEY_ID B2_APPLICATION_KEY B2_BUCKET; do
   assert_ok "$v ada di .env.example" "grep -qE '^${v}=' '$ENVX'"
 done
+
+# Dua nilai B2 yang paling sering salah diisi. Keduanya gagal dengan cara
+# yang membingungkan: applicationKeyId yang keliru menghasilkan 401, dan
+# bucket ID yang keliru menghasilkan "bucket tidak ditemukan". Dokumentasinya
+# harus menyebut perbedaan itu eksplisit, bukan cuma menamai variabelnya.
+_envx_body="$(cat "$ENVX")"
+assert_fail     "tidak memakai nama B2_ACCOUNT_ID yang menyesatkan" \
+  "grep -q 'B2_ACCOUNT_ID' '$ENVX'"
+assert_contains "menjelaskan applicationKeyId" "$_envx_body" "applicationKeyId"
+assert_contains "memperingatkan bukan master Account ID" "$_envx_body" "BUKAN master Account ID"
+assert_contains "menjelaskan nama bucket bukan bucket ID" "$_envx_body" "bukan bucket ID"
 
 # Batasan keras dari spec, dikunci di sini supaya tidak diam-diam berubah.
 assert_ok "bind Jellyfin adalah 127.0.0.1" "grep -qE '^JELLYFIN_BIND=127\.0\.0\.1$' '$ENVX'"

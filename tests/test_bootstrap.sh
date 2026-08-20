@@ -33,7 +33,7 @@ fi
 if [[ -x "$BS" ]]; then
   _env="$(mktemp)"
   cp "$ROOT/.env.example" "$_env"
-  sed -i.bak -e 's/^B2_ACCOUNT_ID=.*/B2_ACCOUNT_ID=005test/' \
+  sed -i.bak -e 's/^B2_KEY_ID=.*/B2_KEY_ID=005test/' \
              -e 's/^B2_APPLICATION_KEY=.*/B2_APPLICATION_KEY=Ktest/' \
              -e 's/^B2_BUCKET=.*/B2_BUCKET=test-bucket/' "$_env"
 

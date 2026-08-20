@@ -137,7 +137,7 @@ log "7/9  Kredensial"
 write_file /etc/rclone/rclone.conf 600 <<CFG
 [b2]
 type = b2
-account = ${B2_ACCOUNT_ID}
+account = ${B2_KEY_ID}
 key = ${B2_APPLICATION_KEY}
 hard_delete = false
 CFG

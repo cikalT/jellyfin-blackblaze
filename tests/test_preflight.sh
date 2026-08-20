@@ -11,7 +11,7 @@ assert_ok "preflight.sh executable" "[[ -x '$PF' ]]"
 _mkenv() {
   local f; f="$(mktemp)"
   cat > "$f" <<'FIXTURE'
-B2_ACCOUNT_ID=005abcdef
+B2_KEY_ID=005abcdef
 B2_APPLICATION_KEY=K005abcdefghij
 B2_BUCKET=media-bucket
 MEDIA_MOUNT=/srv/media

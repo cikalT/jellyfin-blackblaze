@@ -37,7 +37,7 @@ check_config() {
   log "Memeriksa konfigurasi ($ENV_FILE)"
   load_env "$ENV_FILE"
 
-  require_env B2_ACCOUNT_ID B2_APPLICATION_KEY B2_BUCKET \
+  require_env B2_KEY_ID B2_APPLICATION_KEY B2_BUCKET \
               MEDIA_MOUNT VFS_CACHE_DIR VFS_CACHE_MAX_SIZE DIR_CACHE_TIME \
               RCLONE_RC_ADDR JELLYFIN_IMAGE JELLYFIN_BIND JELLYFIN_PORT \
               JELLYFIN_MEM_LIMIT JELLYFIN_UID JELLYFIN_GID JELLYFIN_DATA \
@@ -103,13 +103,19 @@ check_b2() {
   cat > "$tmpcfg" <<CFG
 [b2]
 type = b2
-account = ${B2_ACCOUNT_ID}
+account = ${B2_KEY_ID}
 key = ${B2_APPLICATION_KEY}
 CFG
 
   rclone --config "$tmpcfg" lsd "b2:${B2_BUCKET}" >/dev/null 2>&1 \
-    || die "tidak bisa membaca bucket '${B2_BUCKET}'. Cek B2_ACCOUNT_ID, B2_APPLICATION_KEY,
-    nama bucket, dan pastikan application key punya akses ke bucket ini."
+    || die "tidak bisa membaca bucket '${B2_BUCKET}'.
+
+    Penyebab paling umum, berurutan:
+      1. B2_KEY_ID diisi master Account ID, bukan applicationKeyId.
+         B2 membalas 401 untuk ini. applicationKeyId adalah string yang
+         muncul bersama key saat kamu membuatnya.
+      2. B2_BUCKET diisi bucket ID (heksadesimal), bukan nama bucket.
+      3. Application key tidak punya akses ke bucket ini."
   info "bucket '${B2_BUCKET}' bisa dibaca"
 
   # Kunci HARUS read-only. Kalau tulis berhasil, VPS yang dibobol bisa
