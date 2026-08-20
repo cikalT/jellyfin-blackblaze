@@ -46,14 +46,18 @@ check "grep -q '^user_allow_other' /etc/fuse.conf" \
 _rcport="${RCLONE_RC_ADDR##*:}"
 if ss -tlnp 2>/dev/null | grep -q ":${_rcport}[[:space:]]"; then
   bad "port RC ${_rcport} sudah dipakai proses lain — inilah penyebabnya"
-  ss -tlnp 2>/dev/null | grep ":${_rcport}[[:space:]]" | sed 's/^/    /'
+  ss -tlnpa 2>/dev/null | grep ":${_rcport}[[:space:]]" | sed 's/^/    /'
+  command -v fuser >/dev/null 2>&1 && fuser -v "${_rcport}/tcp" 2>&1 | sed 's/^/    /'
   printf '\n'
-  die "Ada proses rclone yatim yang masih memegang port RC. Bersihkan:
+  die "Port RC masih dipegang. 'systemctl stop' saja sering tidak cukup:
+  kalau unit sedang dalam loop auto-restart, job stop-nya dibatalkan dan
+  loop menyambar portnya lagi. Hentikan loop-nya, bukan instance-nya:
 
-      systemctl stop rclone-b2
-      pkill -f 'rclone[ ]mount'
-      sleep 2
-      systemctl start rclone-b2"
+      systemctl disable --now rclone-b2
+      systemctl reset-failed rclone-b2
+      pkill -9 -f rclone
+      sleep 3
+      systemctl enable --now rclone-b2"
 else
   ok "port RC ${_rcport} bebas"
 fi

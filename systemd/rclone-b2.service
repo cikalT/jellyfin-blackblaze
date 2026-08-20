@@ -4,6 +4,17 @@ Documentation=https://rclone.org/commands/rclone_mount/
 After=network-online.target
 Wants=network-online.target
 
+# Menyerah setelah 5 kegagalan dalam 5 menit, alih-alih me-restart selamanya.
+#
+# Default systemd (burst 5 dalam interval 10 detik) tidak pernah tercapai
+# kalau RestartSec juga 10 detik: tiap kegagalan jatuh di luar jendela
+# sebelumnya, sehingga hitungannya tidak pernah menumpuk. Akibatnya unit
+# me-restart tanpa henti — pernah tercatat sampai 110 kali — dan setiap
+# usaha diagnosis berlomba dengan loop yang terus menyambar port RC.
+# Unit yang menyerah jauh lebih mudah didiagnosis daripada yang ngotot.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
 [Service]
 # notify = systemd baru menganggap unit ini "started" setelah mount SIAP.
 # Seluruh pengurutan boot (terutama docker-after-mount.conf) bergantung

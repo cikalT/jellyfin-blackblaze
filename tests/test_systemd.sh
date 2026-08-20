@@ -31,6 +31,11 @@ if [[ -f "$UNIT" ]]; then
 
   # Pemulihan otomatis kalau rclone mati.
   assert_contains "restart on-failure"     "$_u" "Restart=on-failure"
+  # Unit yang me-restart selamanya jauh lebih sulit didiagnosis daripada
+  # yang menyerah: setiap perintah diagnosis berlomba dengan loop yang
+  # terus menyambar port. Pernah tercatat 110 restart sebelum ini dibatasi.
+  assert_contains "menyerah setelah beberapa kegagalan" "$_u" "StartLimitBurst"
+  assert_contains "jendela batas restart lebih lebar dari RestartSec" "$_u" "StartLimitIntervalSec=300"
 
   # Unmount saat berhenti, kalau tidak mount jadi basi dan I/O menggantung.
   # fuse3 menyediakan fusermount3. Memanggil "fusermount" polos berarti
