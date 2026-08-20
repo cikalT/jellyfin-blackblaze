@@ -4,7 +4,8 @@
 ROOT="$(cd .. && pwd)"
 
 for f in README.md docs/jellyfin-settings.md docs/media-guidelines.md \
-         docs/upload-windows.md docs/client-setup.md docs/operations.md; do
+         docs/upload-windows.md docs/client-setup.md docs/operations.md \
+         docs/setup-walkthrough.md; do
   assert_ok "$f ada" "[[ -f '$ROOT/$f' ]]"
 done
 
@@ -61,6 +62,24 @@ if [[ -f "$ROOT/docs/client-setup.md" ]]; then
   assert_contains "panduan client menyebut cara tambah device" "$_c" "add-client.sh"
   # Tidak boleh ada sisa instruksi Tailscale yang menyesatkan.
   assert_fail "tidak ada sisa instruksi Tailscale" "grep -qi 'tailscale' '$ROOT/docs/client-setup.md'"
+fi
+
+# Panduan setup adalah dokumen yang diikuti sambil duduk di terminal.
+# Empat langkah di bawah adalah yang paling sering salah dan paling mahal
+# kalau terlewat — masing-masing pernah jadi penyebab setup gagal total.
+if [[ -f "$ROOT/docs/setup-walkthrough.md" ]]; then
+  _w="$(cat "$ROOT/docs/setup-walkthrough.md")"
+  # UDP, bukan TCP. Penyebab nomor satu "tidak bisa connect".
+  assert_contains "panduan menegaskan UDP 51820"          "$_w" "UDP"
+  # keyID, bukan Account ID. Penyebab 401 yang membingungkan.
+  assert_contains "panduan memperingatkan keyID vs Account ID" "$_w" "Account ID"
+  # Lifecycle rule: satu klik, mudah dilupakan, ditagih selamanya.
+  assert_contains "panduan menyebut lifecycle rule"       "$_w" "Keep only the last version"
+  # Checklist HARUS dikerjakan sebelum library ditambahkan.
+  assert_contains "panduan menyuruh lewati library di wizard" "$_w" "tanpa menambahkan"
+  assert_contains "panduan memperingatkan Trickplay"      "$_w" "Trickplay"
+  # Dua kunci B2 berbeda hak — inti model keamanannya.
+  assert_contains "panduan menjelaskan dua kunci B2"      "$_w" "read-write"
 fi
 
 # Setiap file yang ditautkan README harus benar-benar ada.

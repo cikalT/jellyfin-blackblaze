@@ -1,5 +1,11 @@
 # shellcheck shell=bash
 # Diuji: scripts/add-client.sh, dengan `wg` dan `qrencode` palsu di PATH.
+#
+# Nilai palsu di bawah sengaja TIDAK menyerupai kunci WireGuard sungguhan.
+# Base64 44-karakter setelah "PrivateKey =" akan dilaporkan pemindai rahasia
+# sebagai kebocoran, meski isinya jelas dummy — dan repo yang rutin memicu
+# alarm palsu melatih orang mengabaikan alarm sungguhan.
+# Skripnya hanya meneruskan string ini apa adanya, jadi bentuknya bebas.
 
 ROOT="$(cd .. && pwd)"
 AC="$ROOT/scripts/add-client.sh"
@@ -12,9 +18,9 @@ _stubdir() {
   cat > "$d/wg" <<'STUB'
 #!/usr/bin/env bash
 case "${1:-}" in
-  genkey) echo "cHJpdmF0ZWtleTAwMDAwMDAwMDAwMDAwMDAwMDAwMDA9" ;;
-  pubkey) cat >/dev/null; echo "cHVibGlja2V5MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA9" ;;
-  genpsk) echo "cHNrMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD0" ;;
+  genkey) echo "FAKE-CLIENT-PRIVATE-FOR-TESTS-ONLY" ;;
+  pubkey) cat >/dev/null; echo "FAKE-CLIENT-PUBLIC-FOR-TESTS-ONLY" ;;
+  genpsk) echo "FAKE-PRESHARED-FOR-TESTS-ONLY" ;;
   *) exit 0 ;;
 esac
 STUB
@@ -44,22 +50,22 @@ _mkwgconf() {
 [Interface]
 Address = 10.8.0.1/24
 ListenPort = 51820
-PrivateKey = c2VydmVycHJpdmF0ZTAwMDAwMDAwMDAwMDAwMDAwMDA9
+PrivateKey = FAKE-SERVER-PRIVATE-FOR-TESTS-ONLY
 
 [Peer]
 # hp
-PublicKey = cGVlcjEwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA9
+PublicKey = FAKE-PEER-1-FOR-TESTS-ONLY
 AllowedIPs = 10.8.0.2/32
 
 [Peer]
 # laptop
-PublicKey = cGVlcjIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA9
+PublicKey = FAKE-PEER-2-FOR-TESTS-ONLY
 AllowedIPs = 10.8.0.3/32
 WGC
   printf '%s' "$f"
 }
 
-_mkpub() { local f; f="$(mktemp)"; printf 'c2VydmVycHVibGljMDAwMDAwMDAwMDAwMDAwMDAwMD0\n' > "$f"; printf '%s' "$f"; }
+_mkpub() { local f; f="$(mktemp)"; printf 'FAKE-SERVER-PUBLIC-FOR-TESTS-ONLY\n' > "$f"; printf '%s' "$f"; }
 
 if [[ -x "$AC" ]]; then
   _d="$(_stubdir)"; _env="$(_mkenv)"; _wgc="$(_mkwgconf)"; _pub="$(_mkpub)"
@@ -77,7 +83,7 @@ if [[ -x "$AC" ]]; then
   assert_fail     "client BUKAN full tunnel"           "printf '%s' '$_out' | grep -q '0\.0\.0\.0/0'"
 
   assert_contains "endpoint memakai IP publik + port"  "$_out" "Endpoint = 203.0.113.10:51820"
-  assert_contains "memakai kunci publik server"        "$_out" "c2VydmVycHVibGljMDAwMDAwMDAwMDAwMDAwMDAwMD0"
+  assert_contains "memakai kunci publik server"        "$_out" "FAKE-SERVER-PUBLIC-FOR-TESTS-ONLY"
   assert_contains "memakai preshared key"              "$_out" "PresharedKey"
   # Client mobile di belakang NAT butuh ini, kalau tidak tunnel mati saat idle.
   assert_contains "keepalive diset"                    "$_out" "PersistentKeepalive"
