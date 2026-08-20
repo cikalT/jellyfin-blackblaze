@@ -1,0 +1,51 @@
+[Unit]
+Description=rclone: mount Backblaze B2 read-only untuk Jellyfin
+Documentation=https://rclone.org/commands/rclone_mount/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# notify = systemd baru menganggap unit ini "started" setelah mount SIAP.
+# Seluruh pengurutan boot (terutama docker-after-mount.conf) bergantung
+# pada ini.
+Type=notify
+EnvironmentFile=/etc/jellyfin-b2/env
+
+ExecStart=/usr/bin/rclone mount b2:${B2_BUCKET} ${MEDIA_MOUNT} \
+  --config /etc/rclone/rclone.conf \
+  --cache-dir ${VFS_CACHE_DIR} \
+  --allow-other \
+  --read-only \
+  --uid ${JELLYFIN_UID} \
+  --gid ${JELLYFIN_GID} \
+  --umask 022 \
+  --dir-cache-time ${DIR_CACHE_TIME} \
+  --poll-interval 0 \
+  --vfs-cache-mode full \
+  --vfs-cache-max-size ${VFS_CACHE_MAX_SIZE} \
+  --vfs-cache-max-age 72h \
+  --vfs-read-chunk-size 16M \
+  --vfs-read-chunk-size-limit 128M \
+  --vfs-read-ahead 128M \
+  --vfs-fast-fingerprint \
+  --buffer-size 16M \
+  --transfers 4 \
+  --checkers 8 \
+  --timeout 1h \
+  --rc \
+  --rc-addr ${RCLONE_RC_ADDR} \
+  --rc-no-auth \
+  --syslog \
+  --log-level INFO
+
+ExecStop=/bin/fusermount -uz ${MEDIA_MOUNT}
+
+Restart=on-failure
+RestartSec=10
+
+# Server hanya punya RAM 2 GB. Tanpa batas ini, rclone dan Jellyfin bisa
+# saling mendorong ke OOM killer.
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target
