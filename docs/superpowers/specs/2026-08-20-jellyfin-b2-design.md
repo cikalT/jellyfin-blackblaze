@@ -13,6 +13,13 @@ tersimpan di Backblaze B2. VPS tidak pernah menyimpan media secara permanen dan
 tidak pernah terlibat dalam proses upload — perannya murni sebagai **jembatan
 streaming** antara B2 dan penonton.
 
+### Model pengguna
+
+**Satu akun Jellyfin, banyak perangkat, tidak pernah memutar bersamaan.** Ini
+bukan detail sepele — inilah yang membuat plafon 20 Mbps cukup, dan yang
+membenarkan dihapusnya seluruh urusan manajemen multi-user, kuota per-user, dan
+pembatasan sesi yang rumit.
+
 ### Non-goals
 
 Hal-hal berikut secara sengaja **tidak** dibangun:
@@ -22,6 +29,10 @@ Hal-hal berikut secara sengaja **tidak** dibangun:
 - Pipeline upload otomatis, *arr stack, atau downloader di server.
 - Sinkronisasi dua arah ke B2 — mount bersifat **read-only**.
 - Redundansi / high availability. Ini instance tunggal.
+- Reverse proxy publik, sertifikat Let's Encrypt, fail2ban, atau hardening
+  internet-facing lainnya — tidak ada yang terekspos, jadi tidak ada yang perlu
+  dikeraskan.
+- Manajemen multi-user, profil anak, atau pembatasan konten.
 
 ---
 
@@ -104,13 +115,25 @@ Flag yang menentukan perilaku:
 | `--vfs-read-chunk-size-limit` | `128M` | Batas atas agar tidak agresif menarik data. |
 | `--vfs-read-ahead` | `128M` | Bantalan cukup untuk bitrate 8 Mbps tanpa boros. |
 | `--buffer-size` | `16M` | Per file terbuka. 3 stream = 48 MB RAM. Aman di 2 GB. |
-| `--dir-cache-time` | `24h` | B2 tidak mendukung change-notify, jadi polling mustahil. |
-| `--poll-interval` | `0` | Eksplisit: tidak ada polling. Refresh dilakukan manual/nightly. |
+| `--dir-cache-time` | `1h` | Kompromi: file baru terlihat otomatis dalam <=1 jam, sementara biaya listing tetap jauh di bawah jatah gratis B2 (2.500 Class C/hari). |
+| `--poll-interval` | `0` | Eksplisit: B2 tidak mendukung change-notify, jadi polling memang mustahil. |
 | `--rc` | `127.0.0.1:5572` | Memungkinkan `vfs/refresh` setelah upload baru. |
 | `--uid/--gid` | `1000` | Cocok dengan user Jellyfin di container. |
 
-**Konsekuensi yang disengaja:** file yang baru diupload **tidak muncul otomatis**.
-Ini ditangani oleh `scripts/refresh-library.sh` (manual) dan cron nightly.
+**Perilaku file baru.** Rantainya dua lapis, dan penting untuk tidak
+mencampuradukkannya:
+
+1. **rclone** menahan daftar isi folder selama `--dir-cache-time` (1 jam).
+   Selama cache masih hangat, file baru belum terlihat oleh proses mana pun di
+   server — termasuk Jellyfin.
+2. **Jellyfin** punya scheduled task *Scan Media Library* yang mendeteksi file
+   baru dan yang berubah. Task ini hanya seakurat listing yang dilihatnya.
+
+Jadi file baru muncul otomatis dalam waktu paling lama `dir-cache-time` +
+interval scan. Untuk hasil instan, `scripts/refresh-library.sh` memaksa
+`vfs/refresh` lewat rclone RC lalu langsung memicu scan Jellyfin lewat API.
+Tidak diperlukan cron tambahan — penjadwal bawaan Jellyfin sudah menangani
+kasus normal.
 
 ### 4.2 Jellyfin
 
@@ -153,7 +176,8 @@ menghabiskan kuota sebulan dalam satu malam.
 | Hardware acceleration | None | Tidak ada GPU. |
 | Transcode thread count | 1 | Membatasi kerusakan kalau transcode tetap terpicu. |
 | Internet streaming bitrate limit (per user) | 8 Mbps | Mencegah client meminta lebih dari yang bisa dilayani link 20 Mbps. |
-| Scan media library (scheduled task) | Harian, 03:00 WIB | Di luar jam tonton. |
+| Scan media library (scheduled task) | Setiap 6 jam | Dengan `dir-cache-time` 1 jam, ini membuat file baru muncul otomatis dalam <=7 jam tanpa intervensi. Biayanya ~800 panggilan listing/hari, masih di bawah jatah gratis. |
+| Maximum simultaneous streams (per user) | 2 | Pagar pengaman terhadap pemutaran ganda yang tidak disengaja. Tidak diset 1 karena sesi TV yang tidak tertutup rapi bisa mengunci pemutaran berikutnya. |
 | Published server URL | `https://<host>.<tailnet>.ts.net` | Agar client menghasilkan URL yang benar. |
 | Audio transcoding (per user) | **Aktif** | Remux audio murah secara CPU dan menyelamatkan banyak file. Hanya *video* yang dilarang. |
 
@@ -225,11 +249,26 @@ tidak berada di jalur upload**, sehingga kuota 512 GB tetap utuh.
 | Application key | Dibatasi ke 1 bucket, kapabilitas `listBuckets`, `listFiles`, `readFiles` | Server hanya streaming. Kalau VPS dibobol, penyerang tidak bisa menghapus media. |
 | Egress | Gratis hingga 3× storage/bulan | Karena VPS dibatasi 512 GB, egress hampir pasti selalu di dalam kuota gratis. |
 
-**Cloudflare fronting sengaja tidak dipakai.** Trik `--b2-download-url` lewat
-Cloudflare berguna untuk menghindari biaya egress B2, tapi di sini egress sudah
-dibatasi 512 GB oleh VPS — jauh di bawah tunjangan gratis B2 untuk storage
-berapa pun di atas ~171 GB. Menambahkannya berarti kompleksitas tanpa manfaat.
-YAGNI.
+### Kenapa Cloudflare tidak dipakai sama sekali
+
+Pengguna memiliki domain di Cloudflare. Domain itu **sengaja tidak dilibatkan**
+dalam setup ini, karena dua pemakaian yang mungkin sama-sama tidak layak:
+
+**Sebagai proxy akses Jellyfin (Cloudflare Tunnel / awan oranye).** Cloudflare
+melarang pengiriman video lewat jaringan mereka di plan Free, Pro, dan Business;
+mereka dapat me-redirect konten atau mengambil tindakan lain terhadap akun yang
+melanggar. Pola ini populer di kalangan self-hoster tapi tetap melanggar ToS.
+Ditolak.
+
+**Sebagai front untuk download B2 (`--b2-download-url`).** Ini menghindari biaya
+egress B2, tapi manfaatnya nyaris nol di sini: egress sudah dibatasi 512 GB oleh
+kuota VPS, sementara tunjangan gratis B2 adalah 3x storage — artinya selama
+storage di atas ~171 GB, egress selalu gratis dengan sendirinya. Untuk library
+yang lebih kecil, biaya terburuknya beberapa ribu rupiah per bulan. Menambahkan
+Cloudflare berarti kompleksitas dan area abu-abu ToS demi penghematan yang tidak
+berarti. YAGNI.
+
+Akses tetap lewat Tailscale saja.
 
 ---
 
@@ -321,8 +360,28 @@ Setup dianggap selesai jika semua ini benar:
   butuh lebih, satu-satunya jalan adalah menaikkan paket VPS.
 - **Disiplin format media.** Beban pindah ke pengguna saat encode. Ini pertukaran
   sadar: 2 vCPU tidak punya pilihan lain.
-- **File baru tidak muncul otomatis.** Konsekuensi dari B2 yang tidak mendukung
-  change-notify. Dimitigasi dengan skrip refresh + cron.
+- **File baru muncul dengan jeda, bukan seketika.** Paling lama ~7 jam secara
+  otomatis (cache direktori 1 jam + interval scan 6 jam). Konsekuensi dari B2
+  yang tidak mendukung change-notify. `refresh-library.sh` menjadikannya instan
+  kalau sedang tidak sabar.
 - **Instance tunggal, tanpa backup config.** Metadata Jellyfin (status tonton,
   user) ada di disk VPS. Snapshot Tencent adalah mitigasi yang disarankan,
   di luar cakupan otomasi ini.
+
+---
+
+## 14. Riwayat keputusan
+
+Dicatat agar keputusan yang sudah dibayar dengan diskusi tidak dibongkar ulang
+tanpa alasan baru.
+
+| # | Keputusan | Alternatif yang ditolak | Alasan |
+|---|---|---|---|
+| 1 | Repo + skrip, dijalankan sendiri oleh pengguna | Provisioning langsung via SSH | Tidak ada kredensial yang perlu melewati sesi asisten. |
+| 2 | Akses lewat Tailscale saja | Domain publik + Caddy; Cloudflare Tunnel | Nol attack surface. Pengguna tunggal, tidak ada kebutuhan berbagi. |
+| 3 | Domain Cloudflare tidak dilibatkan | Awan oranye untuk Jellyfin | Cloudflare melarang pengiriman video lewat plan Free/Pro/Business. |
+| 4 | Cloudflare fronting untuk B2 tidak dipakai | `--b2-download-url` via Cloudflare | Egress B2 sudah gratis dengan sendirinya pada skala ini. YAGNI. |
+| 5 | rclone systemd di host, bukan container | rclone dalam Docker | FUSE-in-Docker rapuh; container rclone yang restart bisa membuat Jellyfin mengira seluruh library hilang. |
+| 6 | Upload lewat Cyberduck di Windows | Web UI Backblaze B2 | Web UI B2 dibatasi 500 MB/file dan tidak mendukung upload folder. Rencana awal pengguna secara harfiah tidak bisa dijalankan untuk file film. |
+| 7 | `dir-cache-time` 1 jam + scan Jellyfin tiap 6 jam | `dir-cache-time` 24 jam + cron nightly | Direvisi setelah pengguna menunjukkan Jellyfin sudah punya deteksi file baru. Menurunkan cache membuat fitur bawaan itu berfungsi; cron jadi tidak perlu. |
+| 8 | Transcoding dimatikan, disiplin format dipindah ke pengguna | Transcoding terbatas | 2 vCPU tidak punya pilihan lain. Gagal terang-terangan lebih baik daripada buffering misterius. |
