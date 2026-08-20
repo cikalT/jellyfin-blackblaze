@@ -74,3 +74,57 @@ if [[ -x "$PF" ]]; then
   rm -f "$_good" "$_nokey" "$_public" "$_latest" \
         "$_nokey.bak" "$_public.bak" "$_latest.bak" 2>/dev/null || true
 fi
+
+# ── Regresi: preflight TIDAK BOLEH bergantung pada rclone ───────────────────
+# rclone baru dipasang oleh bootstrap. Memakainya di preflight membuat
+# preflight mustahil lolos di server bersih — dan karena bootstrap memanggil
+# preflight di langkah 1, bootstrap ikut gagal total.
+assert_fail "preflight tidak memanggil rclone" \
+  "grep -vE '^[[:space:]]*#' '$PF' | grep -qE '(require_cmd[^\n]*rclone|^[[:space:]]*rclone )'"
+
+# ── Cek kredensial B2 lewat API, dengan curl palsu ─────────────────────────
+_curl_stub() {
+  local d; d="$(mktemp -d)"
+  cat > "$d/curl" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n%s' "$STUB_BODY" "$STUB_HTTP"
+STUB
+  chmod +x "$d/curl"
+  printf '%s' "$d"
+}
+
+if [[ -x "$PF" ]]; then
+  _cd="$(_curl_stub)"; _cenv="$(_mkenv)"
+  _b2() { PATH="$_cd:$PATH" STUB_BODY="$1" STUB_HTTP="$2" "$PF" --b2-only --env-file "$_cenv" 2>&1; }
+
+  _RO='{"allowed":{"buckets":[{"id":"b1","name":"media-bucket"}],"capabilities":["listBuckets","listFiles","readFiles"]}}'
+  _RW='{"allowed":{"buckets":[{"id":"b1","name":"media-bucket"}],"capabilities":["listBuckets","listFiles","readFiles","writeFiles","deleteFiles"]}}'
+  _WRONG='{"allowed":{"buckets":[{"id":"b9","name":"bucket-lain"}],"capabilities":["listBuckets","listFiles","readFiles"]}}'
+  _THIN='{"allowed":{"buckets":[{"id":"b1","name":"media-bucket"}],"capabilities":["listBuckets"]}}'
+
+  assert_ok   "kunci read-only untuk bucket benar diterima" \
+    "PATH='$_cd:$PATH' STUB_BODY='$_RO' STUB_HTTP=200 '$PF' --b2-only --env-file '$_cenv'"
+
+  # 401 adalah gejala paling membingungkan di seluruh setup ini. Pesannya
+  # harus menyebut penyebab sesungguhnya, bukan menyuruh 'cek kredensial'.
+  _o401="$(_b2 '{"code":"unauthorized"}' 401 || true)"
+  assert_contains "401 menjelaskan keyID vs Account ID" "$_o401" "applicationKeyId"
+  assert_fail "401 menggagalkan preflight" \
+    "PATH='$_cd:$PATH' STUB_BODY='{}' STUB_HTTP=401 '$PF' --b2-only --env-file '$_cenv'"
+
+  # Kunci yang bisa menulis tetap boleh jalan, tapi harus diperingatkan.
+  _orw="$(_b2 "$_RW" 200 || true)"
+  assert_contains "kunci writable diperingatkan" "$_orw" "BISA MENULIS"
+  assert_ok "kunci writable tidak menggagalkan" \
+    "PATH='$_cd:$PATH' STUB_BODY='$_RW' STUB_HTTP=200 '$PF' --b2-only --env-file '$_cenv'"
+
+  # Kunci yang diarahkan ke bucket lain adalah kesalahan konfigurasi nyata.
+  assert_fail "kunci untuk bucket lain ditolak" \
+    "PATH='$_cd:$PATH' STUB_BODY='$_WRONG' STUB_HTTP=200 '$PF' --b2-only --env-file '$_cenv'"
+
+  # Kapabilitas kurang -> mount akan gagal nanti dengan pesan yang tidak jelas.
+  _othin="$(_b2 "$_THIN" 200 || true)"
+  assert_contains "kapabilitas kurang disebut namanya" "$_othin" "readFiles"
+
+  rm -rf "$_cd" "$_cenv"
+fi

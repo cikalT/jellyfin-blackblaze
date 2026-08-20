@@ -165,9 +165,17 @@ Simpan dengan `Ctrl+O`, `Enter`, lalu `Ctrl+X`.
 # ./scripts/preflight.sh
 ```
 
-Skrip ini tidak mengubah apa pun. Yang diperiksa: kredensial B2 benar-benar
-bisa membaca bucket, kunci memang read-only, RAM dan disk cukup, modul
-WireGuard tersedia, dan `WG_ENDPOINT` cocok dengan IP publik sungguhan.
+Skrip ini tidak mengubah apa pun. Yang diperiksa: kredensial B2 diterima
+API Backblaze, kunci punya kapabilitas yang benar dan dibatasi ke bucket
+yang benar, RAM dan disk cukup, modul WireGuard tersedia, dan `WG_ENDPOINT`
+cocok dengan IP publik sungguhan.
+
+Kalau kredensialnya ditolak, pesannya menyebut penyebab yang paling mungkin.
+Untuk memeriksa ulang kunci saja tanpa cek lainnya:
+
+```bash
+# ./scripts/preflight.sh --b2-only
+```
 
 Harapan: berakhir dengan `Preflight lolos.`
 

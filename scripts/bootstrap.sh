@@ -75,7 +75,18 @@ load_env "$ENV_FILE"
 # ── 1. Preflight ─────────────────────────────────────────────────────────────
 # Preflight bersifat read-only, jadi dijalankan sungguhan bahkan saat dry-run —
 # gunanya justru untuk menangkap konfigurasi salah sedini mungkin.
+#
+# curl dipasang lebih dulu karena preflight memakainya untuk memvalidasi
+# kredensial B2. Ini satu-satunya perubahan sistem yang mendahului preflight,
+# dan sengaja dipilih yang paling tidak berbahaya: memasang curl bisa
+# dibatalkan, sementara langkah-langkah setelah preflight tidak.
 log "1/10 Preflight"
+if ! command -v curl >/dev/null 2>&1; then
+  info "memasang curl (dibutuhkan preflight untuk memeriksa kredensial B2)"
+  run apt-get update -qq
+  run apt-get install -y -qq curl ca-certificates
+fi
+
 if (( DRY_RUN )); then
   "$HERE/preflight.sh" --config-only --env-file "$ENV_FILE"
 else

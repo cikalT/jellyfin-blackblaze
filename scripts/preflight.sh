@@ -8,6 +8,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib/common.sh"
 
 CONFIG_ONLY=0
+B2_ONLY=0
 ENV_FILE="$(repo_root)/.env"
 
 usage() {
@@ -16,6 +17,9 @@ Pemakaian: preflight.sh [opsi]
 
   --config-only      Hanya validasi .env. Lewati semua cek host dan jaringan.
                      Berguna di laptop; bootstrap memanggil tanpa flag ini.
+  --b2-only          Validasi .env + kredensial B2, lewati cek host.
+                     Berguna saat B2 mendadak menolak dan kamu ingin tahu
+                     apakah masalahnya di kunci.
   --env-file PATH    File env yang divalidasi (default: <root repo>/.env)
   -h, --help         Tampilkan bantuan ini
 USAGE
@@ -24,6 +28,7 @@ USAGE
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --config-only) CONFIG_ONLY=1 ;;
+    --b2-only)     B2_ONLY=1 ;;
     --env-file)    ENV_FILE="${2:-}"; shift ;;
     -h|--help)     usage; exit 0 ;;
     *)             die "argumen tidak dikenal: $1" ;;
@@ -132,52 +137,77 @@ check_wireguard() {
 
 check_b2() {
   log "Memeriksa kredensial Backblaze B2"
-  require_cmd rclone
+  # curl, bukan rclone. rclone baru dipasang oleh bootstrap, sehingga
+  # memakainya di sini membuat preflight mustahil lolos di server bersih.
+  command -v curl >/dev/null 2>&1 || die \
+    "curl belum terpasang. Jalankan dulu:  apt-get update && apt-get install -y curl"
 
-  local tmpcfg; tmpcfg="$(mktemp)"
-  chmod 600 "$tmpcfg"
-  # shellcheck disable=SC2064
-  trap "rm -f '$tmpcfg'" RETURN
-  cat > "$tmpcfg" <<CFG
-[b2]
-type = b2
-account = ${B2_KEY_ID}
-key = ${B2_APPLICATION_KEY}
-CFG
+  local resp http body
+  resp="$(curl -sS -m 20 -w $'\n%{http_code}' \
+    -u "${B2_KEY_ID}:${B2_APPLICATION_KEY}" \
+    https://api.backblazeb2.com/b2api/v4/b2_authorize_account 2>/dev/null || true)"
+  http="$(printf '%s' "$resp" | tail -n1)"
+  body="$(printf '%s' "$resp" | sed '$d' | tr -d ' \n\t')"
 
-  rclone --config "$tmpcfg" lsd "b2:${B2_BUCKET}" >/dev/null 2>&1 \
-    || die "tidak bisa membaca bucket '${B2_BUCKET}'.
+  case "$http" in
+    200) : ;;
+    401) die "B2 menolak kredensial (HTTP 401).
 
-    Penyebab paling umum, berurutan:
-      1. B2_KEY_ID diisi master Account ID, bukan applicationKeyId.
-         B2 membalas 401 untuk ini. applicationKeyId adalah string yang
-         muncul bersama key saat kamu membuatnya.
-      2. B2_BUCKET diisi bucket ID (heksadesimal), bukan nama bucket.
-      3. Application key tidak punya akses ke bucket ini."
-  info "bucket '${B2_BUCKET}' bisa dibaca"
+    Penyebab paling umum: B2_KEY_ID diisi *master Account ID* dari halaman
+    akun, bukan applicationKeyId. Keduanya nilai yang berbeda.
+    applicationKeyId adalah string yang muncul BERSAMA kunci saat kamu
+    menekan 'Create New Key' di halaman Application Keys." ;;
+    "")  die "tidak ada respons dari B2. Server ini bisa menjangkau internet?" ;;
+    *)   die "B2 membalas HTTP $http (diharapkan 200). Cek koneksi jaringan server." ;;
+  esac
+  info "kredensial diterima B2"
 
-  # Kunci HARUS read-only. Kalau tulis berhasil, VPS yang dibobol bisa
-  # menghapus seluruh library — jadi ini peringatan keras, bukan catatan kaki.
-  if rclone --config "$tmpcfg" mkdir "b2:${B2_BUCKET}/.preflight-write-test" >/dev/null 2>&1; then
-    rclone --config "$tmpcfg" rmdir "b2:${B2_BUCKET}/.preflight-write-test" >/dev/null 2>&1 || true
-    warn "application key BISA MENULIS ke bucket. Buat ulang key dengan kapabilitas
-    listBuckets, listFiles, readFiles saja — server ini tidak pernah perlu menulis."
+  # Kapabilitas dibaca langsung dari respons — tidak perlu lagi membuktikan
+  # sifat read-only dengan mencoba menulis ke bucket pengguna.
+  local caps missing_caps=""
+  caps="$(printf '%s' "$body" | grep -o '"capabilities":\[[^]]*\]' || true)"
+  [[ -n "$caps" ]] || die "respons B2 tidak memuat daftar kapabilitas — bentuk API berubah?"
+
+  local need
+  for need in listBuckets listFiles readFiles; do
+    printf '%s' "$caps" | grep -q "\"${need}\"" || missing_caps="$missing_caps $need"
+  done
+  [[ -z "$missing_caps" ]] || die \
+    "application key tidak punya kapabilitas:${missing_caps}
+    Buat ulang kunci dengan Type of Access = Read Only."
+
+  local bad
+  for bad in writeFiles deleteFiles deleteBuckets writeBuckets; do
+    if printf '%s' "$caps" | grep -q "\"${bad}\""; then
+      warn "application key BISA MENULIS ke bucket (punya '${bad}').
+    Server ini tidak pernah perlu menulis. Buat ulang kunci dengan
+    Type of Access = Read Only, supaya VPS yang dibobol tidak bisa
+    menghapus library-mu."
+      break
+    fi
+  done
+
+  # Cakupan bucket. Kunci yang dibatasi ke satu bucket akan menyebut
+  # namanya di sini — sekaligus membuktikan bucket itu memang ada.
+  if printf '%s' "$body" | grep -q "\"name\":\"${B2_BUCKET}\""; then
+    info "kunci dibatasi ke bucket '${B2_BUCKET}' (benar)"
+  elif printf '%s' "$body" | grep -qE '"buckets":(\[\]|null)' || ! printf '%s' "$body" | grep -q '"buckets"'; then
+    warn "application key tidak dibatasi ke bucket mana pun.
+    Buat ulang kunci dengan 'Allow access to Bucket(s)' diarahkan ke
+    '${B2_BUCKET}' saja."
   else
-    info "application key bersifat read-only (benar)"
-  fi
-
-  local top; top="$(rclone --config "$tmpcfg" lsd "b2:${B2_BUCKET}" 2>/dev/null | awk '{print $NF}' | tr '\n' ' ')"
-  if [[ -z "$top" ]]; then
-    warn "bucket kosong. Upload media dulu — lihat docs/upload-windows.md"
-  else
-    info "folder teratas: $top"
+    die "application key tidak punya akses ke bucket '${B2_BUCKET}'.
+    Kunci ini dibatasi ke bucket lain. Cek B2_BUCKET di .env, atau buat
+    kunci baru yang diarahkan ke bucket yang benar."
   fi
 }
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 check_config
-if (( CONFIG_ONLY == 0 )); then
+if (( B2_ONLY )); then
+  check_b2
+elif (( CONFIG_ONLY == 0 )); then
   check_host
   check_wireguard
   check_b2
