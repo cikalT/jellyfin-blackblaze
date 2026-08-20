@@ -2,7 +2,7 @@
 # Menjalankan setiap tests/test_*.sh dan melaporkan total.
 set -uo pipefail
 
-cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")" || exit 1
 # shellcheck source=tests/assert.sh
 . ./assert.sh
 
