@@ -1784,6 +1784,7 @@ library. Karena itu isinya diuji, bukan sekadar ditulis.
 - Create: `docs/jellyfin-settings.md`
 - Create: `docs/media-guidelines.md`
 - Create: `docs/upload-windows.md`
+- Create: `docs/client-setup.md`
 - Create: `docs/operations.md`
 - Create: `tests/test_docs.sh`
 
@@ -1802,7 +1803,7 @@ Buat `tests/test_docs.sh`:
 ROOT="$(cd .. && pwd)"
 
 for f in README.md docs/jellyfin-settings.md docs/media-guidelines.md \
-         docs/upload-windows.md docs/operations.md; do
+         docs/upload-windows.md docs/client-setup.md docs/operations.md; do
   assert_ok "$f ada" "[[ -f '$ROOT/$f' ]]"
 done
 
@@ -1830,6 +1831,15 @@ if [[ -f "$ROOT/docs/media-guidelines.md" ]]; then
   for term in "H.264" "AAC" "SRT" "HEVC"; do
     assert_contains "panduan media menyebut '$term'" "$_m" "$term"
   done
+fi
+
+# Panduan client harus menjawab pertanyaan pertama setiap orang: alamat apa
+# yang saya masukkan? Jawabannya nama MagicDNS, bukan IP.
+if [[ -f "$ROOT/docs/client-setup.md" ]]; then
+  _c="$(cat "$ROOT/docs/client-setup.md")"
+  assert_contains "panduan client menyebut MagicDNS" "$_c" "MagicDNS"
+  assert_contains "panduan client memberi contoh URL ts.net" "$_c" ".ts.net"
+  assert_contains "panduan client menyebut batasan smart TV" "$_c" "webOS"
 fi
 
 # Setiap file yang ditautkan README harus benar-benar ada.
@@ -2125,7 +2135,71 @@ Kalau Docker tidak start, biasanya karena mount gagal — itu perilaku yang
 disengaja. Perbaiki mount-nya dulu, Docker akan menyusul.
 ```
 
-- [ ] **Step 7: Tulis `README.md`**
+- [ ] **Step 7: Tulis `docs/client-setup.md`**
+
+```markdown
+# Menghubungkan Device ke Jellyfin
+
+Tidak ada IP yang perlu diingat, tidak ada port forwarding, tidak ada DDNS.
+Tailscale memberi server ini nama tetap yang berfungsi dari mana saja —
+rumah, kantor, data seluler, Wi-Fi hotel.
+
+## Sekali per device
+
+1. Install Tailscale:
+   - Android: Play Store
+   - iOS / iPadOS: App Store
+   - Windows / macOS / Linux: https://tailscale.com/download
+2. Login dengan akun yang **sama** dengan yang dipakai di VPS.
+3. Aktifkan. Device dapat alamat `100.x.x.x` dan langsung bisa melihat server.
+
+## Sekali per app Jellyfin
+
+Buka app Jellyfin, pilih **Add Server**, isi alamatnya:
+
+    https://jellyfin.<nama-tailnet>.ts.net
+
+Nama persisnya bisa dilihat di VPS dengan `tailscale serve status`, atau di
+admin console Tailscale. Alamat ini tidak pernah berubah — tidak perlu
+diperbarui saat kamu pindah jaringan atau saat IP VPS berganti.
+
+Login dengan user Jellyfin, lalu selesai. App akan mengingat servernya.
+
+## Kenapa tidak pakai IP
+
+MagicDNS memetakan `jellyfin.<tailnet>.ts.net` ke alamat tailnet server
+secara otomatis. Memakai IP `100.x.x.x` mentah juga bisa, tapi sertifikat
+TLS diterbitkan untuk nama DNS-nya — pakai IP dan kamu akan dapat peringatan
+sertifikat. Selalu pakai nama.
+
+## Jika tidak bisa terhubung
+
+| Gejala | Penyebab biasanya |
+|---|---|
+| Tailscale menyala tapi server tidak terlihat | Device login ke akun/tailnet berbeda |
+| Nama tidak me-resolve | MagicDNS mati di admin console Tailscale |
+| Peringatan sertifikat | Memakai IP, bukan nama `.ts.net` |
+| Terhubung tapi pemutaran lambat | Tailscale jatuh ke relay DERP, bukan koneksi langsung. Cek `tailscale status` — kalau tertulis "relay", buka UDP 41641 di security group Tencent |
+
+Baris terakhir itu penting: koneksi lewat relay DERP jauh lebih lambat dan
+akan merusak pemutaran. Pastikan **UDP 41641** diizinkan masuk di firewall
+Tencent supaya Tailscale bisa membangun koneksi langsung.
+
+## Batasan device
+
+| Device | Status |
+|---|---|
+| Windows, macOS, Linux, iOS, Android | App resmi |
+| Apple TV (tvOS 17+) | App resmi |
+| Android TV, Fire TV, Nvidia Shield | Pakai app Android |
+| Smart TV Samsung (Tizen) dan LG (webOS) | **Tidak didukung** — tidak ada client Tailscale untuk platform ini |
+
+Kalau nanti butuh menonton di TV Samsung/LG, jalan termudah adalah menambah
+streaming box (Apple TV atau Fire TV) daripada mengekspos Jellyfin ke
+internet.
+```
+
+- [ ] **Step 8: Tulis `README.md`**
 
 ```markdown
 # Jellyfin + Backblaze B2
@@ -2164,6 +2238,7 @@ Lalu ikuti tiga langkah manual yang dicetak bootstrap: `tailscale up`,
 - [Checklist setting Jellyfin](docs/jellyfin-settings.md) — **kerjakan ini**, bukan opsional
 - [Aturan format media](docs/media-guidelines.md) — apa yang bisa dan tidak bisa diputar
 - [Upload dari Windows](docs/upload-windows.md) — setup Cyberduck
+- [Menghubungkan device](docs/client-setup.md) — alamat apa yang dimasukkan di app Jellyfin
 - [Runbook operasional](docs/operations.md) — saat ada yang rusak
 
 ## Skrip
@@ -2189,7 +2264,7 @@ Seluruh suite berjalan di laptop tanpa server.
 - [Implementation plan](docs/superpowers/plans/2026-08-20-jellyfin-b2-setup.md) — langkah demi langkah
 ```
 
-- [ ] **Step 8: Jalankan tes untuk memastikan LULUS**
+- [ ] **Step 9: Jalankan tes untuk memastikan LULUS**
 
 ```bash
 bash tests/run.sh
@@ -2197,7 +2272,7 @@ bash tests/run.sh
 
 Harapan: LULUS, seluruh suite.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add README.md docs/ tests/test_docs.sh
@@ -2327,6 +2402,7 @@ git commit -m "docs: catat hasil verifikasi di server"
 | 5 Setting Jellyfin wajib | 9 (`jellyfin-settings.md`), diuji di `test_docs.sh` |
 | 6 Aturan media | 9 (`media-guidelines.md`) |
 | 7 Alur upload | 9 (`upload-windows.md`), 7 (`refresh-library.sh`) |
+| 4.3 Akses client | 9 (`client-setup.md`) |
 | 8 Konfigurasi B2 | 5 (preflight memverifikasi read-only), 9 |
 | 9 Anggaran disk | 2 (batas cache), 5 (cek disk), 6 (batas journald/docker) |
 | 10 Isi repository | seluruh task |
