@@ -1,0 +1,12 @@
+# Rahasia — tidak pernah di-commit
+.env
+rclone/rclone.conf
+
+# State runtime Jellyfin (dibuat di server)
+config/
+cache/
+transcodes/
+
+# OS
+.DS_Store
+Thumbs.db
