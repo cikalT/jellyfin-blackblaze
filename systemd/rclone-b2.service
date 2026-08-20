@@ -11,10 +11,18 @@ Wants=network-online.target
 Type=notify
 EnvironmentFile=/etc/jellyfin-b2/env
 
-# Bersihkan mount basi sebelum start. Tanpa ini, sekali saja rclone mati
-# tidak wajar, mountpoint tertinggal dalam keadaan "transport endpoint is
-# not connected" dan setiap start berikutnya ikut gagal.
-ExecStartPre=-/bin/sh -c 'fusermount3 -uz ${MEDIA_MOUNT} 2>/dev/null || umount -l ${MEDIA_MOUNT} 2>/dev/null || true'
+# Bersihkan sisa start sebelumnya. Dua hal, dan urutannya penting.
+#
+# 1. fusermount3 -uz adalah LAZY unmount: mount-nya lepas seketika, tapi
+#    proses rclone-nya TIDAK ikut mati. Proses yatim itu tetap memegang
+#    port RC 5572, sehingga start berikutnya mati dengan
+#    "bind: address already in use" — dan pesan systemd yang muncul ke
+#    pengguna cuma "control process exited with error code".
+# 2. Karena itu prosesnya harus dibunuh eksplisit, bukan sekadar di-unmount.
+#
+# Pola 'rclone[ ]mount' memakai trik kurung siku supaya baris sh ini tidak
+# cocok dengan dirinya sendiri — tanpa itu, sh membunuh dirinya sendiri.
+ExecStartPre=-/bin/sh -c 'fusermount3 -uz ${MEDIA_MOUNT} 2>/dev/null; pkill -f "rclone[ ]mount .*${MEDIA_MOUNT}" 2>/dev/null; sleep 1; exit 0'
 
 ExecStart=/usr/bin/rclone mount b2:${B2_BUCKET} ${MEDIA_MOUNT} \
   --config /etc/rclone/rclone.conf \
@@ -48,6 +56,15 @@ ExecStart=/usr/bin/rclone mount b2:${B2_BUCKET} ${MEDIA_MOUNT} \
 # paket fuse v2 dan tidak ada di sistem ini. Fallback disediakan supaya unit
 # ini tetap jalan di distro yang hanya punya v2.
 ExecStop=-/bin/sh -c 'fusermount3 -uz ${MEDIA_MOUNT} || fusermount -uz ${MEDIA_MOUNT} || umount -l ${MEDIA_MOUNT}'
+
+# Jaring pengaman: apa pun cara unit ini berakhir — berhasil, gagal, atau
+# dibunuh — mountpoint dibersihkan. Tanpa ini, satu kegagalan meninggalkan
+# mount basi yang menggagalkan setiap start berikutnya.
+ExecStopPost=-/bin/sh -c 'fusermount3 -uz ${MEDIA_MOUNT} 2>/dev/null; exit 0'
+
+# rclone kadang butuh waktu menutup cache VFS. Default 90 detik terlalu
+# lama untuk unit yang sering di-restart saat setup.
+TimeoutStopSec=20
 
 Restart=on-failure
 RestartSec=10

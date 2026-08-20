@@ -40,6 +40,24 @@ check "command -v fusermount3" \
 check "grep -q '^user_allow_other' /etc/fuse.conf" \
   "user_allow_other aktif di /etc/fuse.conf" \
   "user_allow_other belum ada di /etc/fuse.conf — --allow-other akan ditolak"
+# Port RC yang masih dipegang proses yatim adalah penyebab paling umum
+# kegagalan start, dan pesan rclone-nya ("address already in use") terkubur
+# di balik "control process exited with error code" milik systemd.
+_rcport="${RCLONE_RC_ADDR##*:}"
+if ss -tlnp 2>/dev/null | grep -q ":${_rcport}[[:space:]]"; then
+  bad "port RC ${_rcport} sudah dipakai proses lain — inilah penyebabnya"
+  ss -tlnp 2>/dev/null | grep ":${_rcport}[[:space:]]" | sed 's/^/    /'
+  printf '\n'
+  die "Ada proses rclone yatim yang masih memegang port RC. Bersihkan:
+
+      systemctl stop rclone-b2
+      pkill -f 'rclone[ ]mount'
+      sleep 2
+      systemctl start rclone-b2"
+else
+  ok "port RC ${_rcport} bebas"
+fi
+
 if mountpoint -q "$MEDIA_MOUNT" 2>/dev/null; then
   bad "$MEDIA_MOUNT sudah ter-mount — hentikan service dulu"
 else

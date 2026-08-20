@@ -19,6 +19,32 @@ akan menolak jalan dengan pesan yang menunjuk ke sini, bukan sekadar
     ./scripts/quota-check.sh        # pemakaian bandwidth bulan ini
     ./scripts/refresh-library.sh    # setelah upload file baru
 
+## rclone-b2 gagal start: "address already in use"
+
+Penyebab paling umum, dan pesannya terkubur. systemd hanya menampilkan
+"control process exited with error code"; alasan sesungguhnya ada di log:
+
+    CRITICAL: Failed to start remote control: failed to init server:
+    listen tcp 127.0.0.1:5572: bind: address already in use
+
+Artinya ada proses rclone yatim yang masih memegang port RC. Ini terjadi
+karena `fusermount3 -uz` adalah *lazy unmount*: mount-nya lepas seketika,
+tapi prosesnya tidak ikut mati. Jadi mount hilang — healthcheck melaporkan
+"tidak ter-mount" — sementara portnya tetap dipegang.
+
+    systemctl stop rclone-b2
+    pkill -f 'rclone[ ]mount'
+    sleep 2
+    ss -tlnp | grep 5572          # harus kosong
+    systemctl start rclone-b2
+
+Kurung siku di pola `pkill` bukan hiasan: tanpa itu, perintah pkill cocok
+dengan dirinya sendiri.
+
+Unit sekarang membersihkan ini sendiri lewat `ExecStartPre`, jadi kasus ini
+seharusnya tidak terulang. Kalau masih terjadi, berarti ada rclone yang
+dijalankan di luar systemd.
+
 ## Mount hilang atau rclone-b2 gagal start
 
     ./scripts/debug-mount.sh

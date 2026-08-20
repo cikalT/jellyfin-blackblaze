@@ -33,7 +33,21 @@ if [[ -f "$UNIT" ]]; then
   assert_contains "restart on-failure"     "$_u" "Restart=on-failure"
 
   # Unmount saat berhenti, kalau tidak mount jadi basi dan I/O menggantung.
-  assert_contains "unmount saat stop"      "$_u" "fusermount"
+  # fuse3 menyediakan fusermount3. Memanggil "fusermount" polos berarti
+  # memanggil biner paket fuse v2 yang tidak dipasang: ExecStop selalu gagal
+  # dan mount tertinggal basi.
+  assert_contains "unmount memakai fusermount3"        "$_u" "fusermount3"
+  assert_contains "membersihkan sisa sebelum start"    "$_u" "ExecStartPre"
+  # Unmount saja tidak cukup. fusermount3 -uz bersifat LAZY: mount lepas,
+  # tapi proses rclone tetap hidup dan tetap memegang port RC 5572. Start
+  # berikutnya lalu mati dengan "bind: address already in use" — dan yang
+  # sampai ke pengguna cuma "control process exited with error code".
+  assert_contains "membunuh proses rclone yatim"       "$_u" "pkill"
+  # Trik kurung siku. Tanpa itu, baris sh ini cocok dengan dirinya sendiri
+  # dan sh membunuh dirinya sendiri sebelum sempat membunuh yang yatim.
+  assert_contains "pola pkill aman dari self-match"    "$_u" "rclone[ ]mount"
+  # Jaring pengaman: bagaimanapun unit berakhir, mountpoint dibersihkan.
+  assert_contains "pembersihan dijamin setelah stop"   "$_u" "ExecStopPost"
 
   # rclone tidak boleh ikut menghabiskan RAM 2 GB.
   assert_contains "batas memori rclone"    "$_u" "MemoryMax="
