@@ -11,6 +11,11 @@ Wants=network-online.target
 Type=notify
 EnvironmentFile=/etc/jellyfin-b2/env
 
+# Bersihkan mount basi sebelum start. Tanpa ini, sekali saja rclone mati
+# tidak wajar, mountpoint tertinggal dalam keadaan "transport endpoint is
+# not connected" dan setiap start berikutnya ikut gagal.
+ExecStartPre=-/bin/sh -c 'fusermount3 -uz ${MEDIA_MOUNT} 2>/dev/null || umount -l ${MEDIA_MOUNT} 2>/dev/null || true'
+
 ExecStart=/usr/bin/rclone mount b2:${B2_BUCKET} ${MEDIA_MOUNT} \
   --config /etc/rclone/rclone.conf \
   --cache-dir ${VFS_CACHE_DIR} \
@@ -38,7 +43,11 @@ ExecStart=/usr/bin/rclone mount b2:${B2_BUCKET} ${MEDIA_MOUNT} \
   --syslog \
   --log-level INFO
 
-ExecStop=/bin/fusermount -uz ${MEDIA_MOUNT}
+# fusermount3, bukan fusermount: paket yang dipasang bootstrap adalah fuse3,
+# yang menyediakan fusermount3. Biner "fusermount" tanpa angka berasal dari
+# paket fuse v2 dan tidak ada di sistem ini. Fallback disediakan supaya unit
+# ini tetap jalan di distro yang hanya punya v2.
+ExecStop=-/bin/sh -c 'fusermount3 -uz ${MEDIA_MOUNT} || fusermount -uz ${MEDIA_MOUNT} || umount -l ${MEDIA_MOUNT}'
 
 Restart=on-failure
 RestartSec=10
