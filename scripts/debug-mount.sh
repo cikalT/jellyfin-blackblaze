@@ -43,7 +43,7 @@ check "grep -q '^user_allow_other' /etc/fuse.conf" \
 # Port RC yang masih dipegang proses yatim adalah penyebab paling umum
 # kegagalan start, dan pesan rclone-nya ("address already in use") terkubur
 # di balik "control process exited with error code" milik systemd.
-_rcport="${RCLONE_RC_ADDR##*:}"
+_rcport="${RC_ADDR##*:}"
 if ss -tlnp 2>/dev/null | grep -q ":${_rcport}[[:space:]]"; then
   bad "port RC ${_rcport} sudah dipakai proses lain — inilah penyebabnya"
   ss -tlnpa 2>/dev/null | grep ":${_rcport}[[:space:]]" | sed 's/^/    /'

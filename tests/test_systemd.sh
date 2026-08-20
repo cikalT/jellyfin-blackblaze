@@ -60,6 +60,12 @@ if [[ -f "$UNIT" ]]; then
   # Rahasia hanya boleh datang dari file, tidak pernah tertulis di unit.
   assert_fail     "tidak ada kunci B2 di unit"      "grep -qE 'K00[0-9A-Za-z]{20,}' '$UNIT'"
   assert_contains "kredensial dari EnvironmentFile" "$_u" "EnvironmentFile="
+
+  # EnvironmentFile diteruskan apa adanya ke rclone, dan rclone membaca
+  # setiap RCLONE_* sebagai flag. Variabel berawalan RCLONE_ di file itu
+  # akan bertabrakan dengan flag eksplisit di ExecStart.
+  assert_fail "unit tidak merujuk variabel berawalan RCLONE_" \
+    "grep -vE '^[[:space:]]*#' '$UNIT' | grep -q 'RCLONE_'"
 fi
 
 if [[ -f "$DROPIN" ]]; then

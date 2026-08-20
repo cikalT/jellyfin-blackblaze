@@ -24,7 +24,7 @@ STUB
 _mkenv() {
   local f key="$1"; f="$(mktemp)"
   cat > "$f" <<ENVF
-RCLONE_RC_ADDR=127.0.0.1:5572
+RC_ADDR=127.0.0.1:5572
 JELLYFIN_BIND=10.8.0.1
 JELLYFIN_PORT=8096
 JELLYFIN_API_KEY=$key

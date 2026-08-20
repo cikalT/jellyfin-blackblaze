@@ -20,6 +20,12 @@ if [[ -f "$BS" ]]; then
   # Rahasia yang ditulis ke disk harus dikunci.
   assert_contains "chmod 600 untuk file rahasia" "$_b" "chmod 600"
 
+  # File env yang ditulis bootstrap dibaca langsung oleh rclone lewat
+  # EnvironmentFile. Satu variabel berawalan RCLONE_ di sana cukup untuk
+  # membuat rclone gagal start dengan pesan yang menyesatkan.
+  assert_fail "tidak menulis variabel berawalan RCLONE_ ke /etc" \
+    "grep -vE '^[[:space:]]*#' '$BS' | grep -q 'RCLONE_'"
+
   # Bootstrap harus menolak berjalan kalau preflight gagal.
   assert_contains "memanggil preflight"          "$_b" "preflight.sh"
 

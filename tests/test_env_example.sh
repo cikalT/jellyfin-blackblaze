@@ -41,6 +41,14 @@ assert_contains "menjelaskan applicationKeyId" "$_envx_body" "applicationKeyId"
 assert_contains "memperingatkan bukan master Account ID" "$_envx_body" "BUKAN master Account ID"
 assert_contains "menjelaskan nama bucket bukan bucket ID" "$_envx_body" "bukan bucket ID"
 
+# rclone mengonsumsi SETIAP variabel lingkungan berawalan RCLONE_ sebagai
+# flag. Variabel konfigurasi dengan awalan itu akan menumpuk dengan flag
+# yang sama di command line — RCLONE_RC_ADDR menghasilkan dua alamat
+# identik dan rclone mati dengan "address already in use" di port bebas.
+# Butuh berjam-jam untuk mendiagnosis ini. Jangan sampai terulang.
+_rclone_prefixed="$(grep -oE '^RCLONE_[A-Z0-9_]+' "$ENVX" | tr '\n' ' ')"
+assert_eq "tidak ada variabel berawalan RCLONE_ di .env.example" "$_rclone_prefixed" ""
+
 # Batasan keras dari spec, dikunci di sini supaya tidak diam-diam berubah.
 # Jellyfin harus mendengar HANYA di alamat WireGuard. Kalau kedua nilai ini
 # berbeda, Jellyfin bind ke alamat yang tidak ada (container gagal start) atau

@@ -22,11 +22,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 load_env "$ENV_FILE"
-require_env RCLONE_RC_ADDR JELLYFIN_BIND JELLYFIN_PORT
+require_env RC_ADDR JELLYFIN_BIND JELLYFIN_PORT
 
 # 1. Buang cache direktori rclone supaya file baru terlihat oleh kernel.
 log "Me-refresh listing direktori rclone"
-rclone rc --url "http://${RCLONE_RC_ADDR}/" vfs/refresh recursive=true \
+rclone rc --url "http://${RC_ADDR}/" vfs/refresh recursive=true \
   || die "vfs/refresh gagal. Apakah mount berjalan? Cek: systemctl status rclone-b2"
 
 # 2. Sekarang suruh Jellyfin memindai listing yang sudah segar.

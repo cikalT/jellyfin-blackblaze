@@ -57,7 +57,7 @@ ExecStart=/usr/bin/rclone mount b2:${B2_BUCKET} ${MEDIA_MOUNT} \
   --checkers 8 \
   --timeout 1h \
   --rc \
-  --rc-addr ${RCLONE_RC_ADDR} \
+  --rc-addr ${RC_ADDR} \
   --rc-no-auth \
   --syslog \
   --log-level INFO
