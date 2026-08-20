@@ -22,17 +22,25 @@ Penyebab paling umum, berurutan:
 3. **rclone dimatikan OOM killer.** `journalctl -k | grep -i oom`.
    Turunkan `--buffer-size` di unit systemd.
 
-## Server hilang dari tailnet
+## Tidak ada device yang bisa connect
 
-Kalau Jellyfin tiba-tiba tidak bisa diakses dari device mana pun padahal
-VPS-nya hidup, tersangka pertama adalah **key expiry Tailscale** (default
-180 hari). SSH ke server:
+    sudo wg show
 
-    tailscale status
+Kolom *latest handshake* per peer adalah diagnosis tercepat:
 
-Kalau tertulis logged out, jalankan `sudo tailscale up` lagi — lalu matikan
-expiry-nya secara permanen seperti di `client-setup.md` supaya tidak
-terulang.
+- **Kosong untuk semua peer** → UDP 51820 tertutup di security group Tencent,
+  atau `wg-quick@wg0` mati. Cek `systemctl status wg-quick@wg0`.
+- **Kosong untuk satu peer saja** → config device itu salah; buat ulang
+  dengan `./scripts/add-client.sh <nama>` memakai nama baru.
+- **Handshake ada tapi Jellyfin tidak merespons** → tunnel sehat, masalahnya
+  di Jellyfin. Jalankan `./scripts/healthcheck.sh`.
+
+Kalau interface-nya sendiri tidak mau naik:
+
+    journalctl -u wg-quick@wg0 -n 30 --no-pager
+
+Penyebab paling umum: `wg0.conf` rusak karena diedit manual. Blok `[Peer]`
+yang tidak lengkap membuat seluruh interface gagal start, bukan cuma peer itu.
 
 ## Disk penuh
 
@@ -64,8 +72,7 @@ Buka **Dashboard → Activity** saat sedang memutar.
 - Tertulis **Transcode** atau **Remux** → filenya melanggar
   `media-guidelines.md`. Perbaiki filenya.
 - Tertulis **Direct Play** tapi tetap buffering → bitrate file melebihi
-  20 Mbps yang tersedia, atau ada stream kedua yang berjalan, atau Tailscale
-  sedang lewat relay DERP (`tailscale status`).
+  20 Mbps yang tersedia, atau ada stream kedua yang berjalan.
 
 ## Upgrade Jellyfin
 

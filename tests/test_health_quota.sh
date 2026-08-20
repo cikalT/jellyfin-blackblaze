@@ -61,7 +61,7 @@ if [[ -x "$HC" ]]; then
   cat > "$_henv" <<'ENVF'
 MEDIA_MOUNT=/nonexistent/mount/point
 VFS_CACHE_DIR=/tmp
-JELLYFIN_BIND=127.0.0.1
+JELLYFIN_BIND=10.8.0.1
 JELLYFIN_PORT=59999
 VFS_CACHE_MAX_SIZE=10G
 ENVF

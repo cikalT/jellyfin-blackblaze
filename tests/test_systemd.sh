@@ -3,7 +3,7 @@
 
 ROOT="$(cd .. && pwd)"
 UNIT="$ROOT/systemd/rclone-b2.service"
-DROPIN="$ROOT/systemd/docker-after-mount.conf"
+DROPIN="$ROOT/systemd/docker-after-deps.conf"
 
 assert_ok "unit rclone ada"    "[[ -f '$UNIT' ]]"
 assert_ok "drop-in docker ada" "[[ -f '$DROPIN' ]]"
@@ -47,8 +47,9 @@ if [[ -f "$DROPIN" ]]; then
   _d="$(cat "$DROPIN")"
   # Docker harus menunggu mount. Kalau tidak, container yang auto-start saat
   # boot melihat /srv/media kosong.
-  assert_contains "docker menunggu mount" "$_d" "rclone-b2.service"
-  assert_contains "docker butuh mount"    "$_d" "Requires="
+  assert_contains "docker menunggu mount"     "$_d" "rclone-b2.service"
+  assert_contains "docker menunggu wireguard" "$_d" "wg-quick@wg0.service"
+  assert_contains "docker butuh keduanya"     "$_d" "Requires="
 fi
 
 # Validasi sintaks penuh kalau systemd tersedia (Linux saja).

@@ -21,7 +21,7 @@ services:
       JELLYFIN_FFmpeg__probesize: 10M
       JELLYFIN_FFmpeg__analyzeduration: 5M
 
-    # HANYA localhost. Paparan ke tailnet dilakukan `tailscale serve`.
+    # HANYA alamat WireGuard. Satu-satunya pintu masuk adalah tunnel.
     # Mengubah ini jadi 0.0.0.0 mengekspos Jellyfin ke internet publik.
     ports:
       - "${JELLYFIN_BIND}:${JELLYFIN_PORT}:8096"

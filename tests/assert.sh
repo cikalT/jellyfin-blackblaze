@@ -28,6 +28,14 @@ assert_contains() {
   if printf '%s' "$2" | grep -qF -- "$3"; then _pass "$1"; else _fail "$1" "tidak mengandung '$3' di: $2"; fi
 }
 
+# assert_contains_i <nama> <teks> <substring> — abai huruf besar/kecil.
+# Dipakai untuk assertion terhadap prosa, di mana sebuah frasa bisa muncul di
+# awal kalimat ("Tanpa login") atau di tengah ("...tanpa login..."). Menuntut
+# kapitalisasi persis di situ hanya memaksa dokumen ditulis mengikuti tes.
+assert_contains_i() {
+  if printf '%s' "$2" | grep -qiF -- "$3"; then _pass "$1"; else _fail "$1" "tidak mengandung '$3' (abai kapital) di: $2"; fi
+}
+
 # assert_eq <nama> <aktual> <harapan>
 assert_eq() {
   if [[ "$2" == "$3" ]]; then _pass "$1"; else _fail "$1" "'$2' != '$3'"; fi

@@ -1,90 +1,100 @@
 # Menghubungkan Device ke Jellyfin
 
-Tidak ada IP yang perlu diingat, tidak ada port forwarding, tidak ada DDNS.
-Tailscale memberi server ini nama tetap yang berfungsi dari mana saja —
-rumah, kantor, data seluler, Wi-Fi hotel.
+**Tanpa login, tanpa akun, tanpa langganan.** WireGuard tidak punya konsep
+akun sama sekali. Kamu buat satu config per device, scan sekali, selesai —
+tidak ada sesi yang kedaluwarsa dan tidak ada yang perlu di-login ulang.
 
-## Sekali per device
+## Sebelum device pertama
 
-1. Install Tailscale:
-   - Android: Play Store
-   - iOS / iPadOS: App Store
-   - Windows / macOS / Linux: https://tailscale.com/download
-2. **Login dengan akun yang sama** dengan yang dipakai di VPS. Ya, tiap
-   device harus login — itulah cara Tailscale tahu device mana milikmu.
-   Bisa pakai Google, GitHub, Microsoft, Apple, atau email.
-3. Aktifkan. Device dapat alamat `100.x.x.x` dan langsung bisa melihat server.
+Buka **UDP 51820** di security group VPS Tencent. Tanpa ini tidak ada satu
+pun client yang bisa menyambung.
 
-Paket gratis Tailscale mencakup 100 device dan 3 user — jauh lebih dari cukup.
+Ini lebih aman daripada terdengar: WireGuard tidak membalas paket yang tidak
+membawa kunci sah — bagi pemindai port, port itu tampak tertutup. Sangat
+berbeda dengan mengekspos halaman login HTTP yang akan langsung jadi sasaran
+bot.
 
-## Sekali per app Jellyfin
+## Menambahkan device
 
-Buka app Jellyfin, pilih **Add Server**, isi alamatnya:
+Di VPS, satu perintah per device:
 
-    https://jellyfin.<nama-tailnet>.ts.net
+    sudo ./scripts/add-client.sh hp
+    sudo ./scripts/add-client.sh laptop
+    sudo ./scripts/add-client.sh tablet
 
-Nama persisnya bisa dilihat di VPS dengan `tailscale serve status`, atau di
-admin console Tailscale. Alamat ini tidak pernah berubah — tidak perlu
-diperbarui saat kamu pindah jaringan atau saat IP VPS berganti.
+Nama bebas, asal huruf kecil, angka, dan tanda hubung. Skrip akan:
 
-Login dengan user Jellyfin, lalu selesai. App akan mengingat servernya.
+1. Memilih alamat bebas berikutnya di tunnel (`10.8.0.2`, `.3`, `.4`, ...)
+2. Membuat pasangan kunci khusus device itu
+3. Mendaftarkannya ke server **tanpa memutus** device lain yang sedang menonton
+4. Mencetak QR code dan menyimpan file `.conf`
 
-## WAJIB: matikan key expiry di server
+## Memasang di device
 
-Secara default, kunci device Tailscale kedaluwarsa setiap **180 hari**. Kalau
-itu terjadi pada VPS, server lepas dari tailnet tanpa peringatan dan Jellyfin
-mendadak tidak bisa diakses dari mana pun — satu-satunya jalan adalah SSH ke
-server dan login ulang.
+Install app WireGuard resmi — [wireguard.com/install](https://www.wireguard.com/install/).
+Tersedia untuk Windows, macOS, Linux, iOS, dan Android.
 
-Matikan sekali, permanen:
+**HP / tablet:** buka app → **+** → *Scan from QR code* → arahkan ke QR yang
+tercetak di terminal. Beri nama, aktifkan togglenya. Selesai.
 
-**Admin console Tailscale → Machines → pilih `jellyfin` → menu ⋯ →
-Disable key expiry**
+**Laptop:** salin file `.conf` dari `/etc/wireguard/clients/<nama>.conf` ke
+laptop, lalu di app WireGuard pilih *Import tunnel from file*.
 
-Untuk HP dan laptop, expiry 180 hari tidak masalah — login ulang di device
-yang ada layarnya itu mudah. Yang berbahaya hanya di server.
+    scp root@<ip-vps>:/etc/wireguard/clients/laptop.conf .
 
-## Login di VPS yang headless
+File itu berisi kunci privat device — perlakukan seperti password.
 
-Server tidak punya browser, jadi ada dua cara:
+## Membuka Jellyfin
 
-    # Interaktif — mencetak URL, buka di browser mana pun untuk otorisasi
-    sudo tailscale up --hostname=jellyfin
+Aktifkan tunnel, lalu buka:
 
-    # Auth key — dibuat dulu di admin console (Settings -> Keys)
-    sudo tailscale up --hostname=jellyfin --authkey=tskey-auth-xxxxx
+    http://10.8.0.1:8096
 
-## Kenapa tidak pakai IP
+Alamat ini **tidak pernah berubah** — tidak peduli kamu di rumah, di kantor,
+atau pakai data seluler. Masukkan alamat yang sama di app Jellyfin sebagai
+server address.
 
-MagicDNS memetakan `jellyfin.<tailnet>.ts.net` ke alamat tailnet server
-secara otomatis. Memakai IP `100.x.x.x` mentah juga bisa, tapi sertifikat
-TLS diterbitkan untuk nama DNS-nya — pakai IP dan kamu akan dapat peringatan
-sertifikat. Selalu pakai nama.
+Tanpa HTTPS memang disengaja. WireGuard sudah mengenkripsi seluruh trafik
+di dalam tunnel, jadi menambahkan TLS di atasnya hanya menambah sertifikat
+yang harus diurus tanpa menambah keamanan.
+
+## Kenapa split tunnel — jangan diubah
+
+Config yang dihasilkan berisi baris ini:
+
+    AllowedIPs = 10.8.0.0/24
+
+Artinya **hanya** trafik menuju VPS yang lewat tunnel. Browsing, YouTube,
+WhatsApp — semuanya tetap lewat koneksi normalmu.
+
+Kalau kamu menggantinya jadi `0.0.0.0/0`, seluruh internetmu akan mengalir
+lewat VPS. Efeknya: kuota 512 GB/bulan habis untuk hal yang bukan menonton,
+dan semua browsing dibatasi 20 Mbps. Jangan diubah kecuali kamu memang
+sengaja ingin memakai VPS ini sebagai VPN penuh — dan sadar konsekuensinya.
 
 ## Jika tidak bisa terhubung
 
 | Gejala | Penyebab biasanya |
 |---|---|
-| Tailscale menyala tapi server tidak terlihat | Device login ke akun/tailnet berbeda |
-| Server hilang setelah beberapa bulan | Key expiry — lihat bagian di atas |
-| Nama tidak me-resolve | MagicDNS mati di admin console Tailscale |
-| Peringatan sertifikat | Memakai IP, bukan nama `.ts.net` |
-| Terhubung tapi pemutaran lambat | Tailscale jatuh ke relay DERP, bukan koneksi langsung |
+| Handshake tidak pernah terjadi | UDP 51820 belum dibuka di security group Tencent |
+| Terhubung, tapi `10.8.0.1` tidak merespons | Jellyfin belum jalan — cek `./scripts/healthcheck.sh` di VPS |
+| Jalan di rumah, mati di seluler | Operator memblokir UDP. Coba ganti `WG_PORT` ke 443 lalu jalankan ulang bootstrap |
+| Tunnel mati sendiri saat HP idle | `PersistentKeepalive` hilang dari config — buat ulang dengan `add-client.sh` |
+| Browsing jadi lambat setelah connect | `AllowedIPs` berubah jadi `0.0.0.0/0` — lihat bagian di atas |
 
-Baris terakhir itu penting: koneksi lewat relay DERP jauh lebih lambat dan
-akan merusak pemutaran. Cek dengan `tailscale status` — kalau tertulis
-"relay", pastikan **UDP 41641** diizinkan masuk di security group Tencent
-supaya Tailscale bisa membangun koneksi langsung.
+Cek dari sisi server siapa yang sedang terhubung:
 
-## Batasan device
+    sudo wg show
 
-| Device | Status |
-|---|---|
-| Windows, macOS, Linux, iOS, Android | App resmi |
-| Apple TV (tvOS 17+) | App resmi |
-| Android TV, Fire TV, Nvidia Shield | Pakai app Android |
-| Smart TV Samsung (Tizen) dan LG (webOS) | **Tidak didukung** — tidak ada client Tailscale untuk platform ini |
+Kolom *latest handshake* menunjukkan kapan terakhir device itu aktif. Kalau
+kosong, device itu belum pernah berhasil menyambung sama sekali.
 
-Kalau nanti butuh menonton di TV Samsung/LG, jalan termudah adalah menambah
-streaming box (Apple TV atau Fire TV) daripada mengekspos Jellyfin ke
-internet.
+## Menghapus device
+
+Hilang HP? Buka `/etc/wireguard/wg0.conf`, hapus blok `[Peer]` yang
+berkomentar nama device itu, lalu:
+
+    sudo wg syncconf wg0 <(wg-quick strip wg0)
+    sudo rm /etc/wireguard/clients/hp.conf
+
+Device itu langsung kehilangan akses. Device lain tidak terganggu.

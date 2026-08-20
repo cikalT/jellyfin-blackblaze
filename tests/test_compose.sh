@@ -45,7 +45,7 @@ if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; 
     echo "B2_KEY_ID=005test"
     echo "B2_APPLICATION_KEY=Ktest"
     echo "B2_BUCKET=test-bucket"
-    echo "JELLYFIN_PUBLISHED_URL=https://jellyfin.example.ts.net"
+    echo "WG_ENDPOINT=203.0.113.10"
   } >> "$_fixture/.env"
   cp "$COMPOSE" "$_fixture/docker-compose.yml"
   assert_ok "docker compose config tervalidasi" \

@@ -52,8 +52,13 @@ Setiap byte yang ditonton melintasi NIC VPS **dua kali** secara logis (masuk dar
 B2, keluar ke penonton), tapi Tencent hanya menghitung **traffic keluar**. Jadi
 kuota efektifnya adalah 512 GB tontonan per bulan.
 
-Tailscale menambah overhead WireGuard ~4–6%. Anggaran realistis: **~485 GB
-tontonan/bulan**.
+WireGuard menambah overhead enkapsulasi ~4–6%. Anggaran realistis:
+**~485 GB tontonan/bulan**.
+
+Split tunnel penting di sini: client hanya me-rute subnet VPN lewat tunnel,
+sehingga browsing biasa tidak menyentuh kuota sama sekali. Full tunnel akan
+mengalirkan seluruh trafik internet pengguna lewat VPS dan menghabiskan
+kuota untuk hal yang bukan menonton.
 
 ---
 
@@ -72,13 +77,13 @@ tontonan/bulan**.
    │   rclone mount (systemd, di host)  ──▶  /srv/media  (ro)      │
    │                                             │ bind, rslave    │
    │   Jellyfin (Docker, versi di-pin)  ◀────────┘                 │
-   │        └── bind ke 127.0.0.1:8096 saja                        │
+   │        └── bind ke 10.8.0.1:8096 saja                         │
    │                          │                                    │
-   │   tailscaled ────────────┘                                    │
+   │   wg0  10.8.0.1  ────────┘   dengar di UDP 51820              │
    └───────────────────────────┬───────────────────────────────────┘
-                               │  WireGuard (terenkripsi)
+                               │  WireGuard, split tunnel
                                ▼
-                    TV / HP / laptop di tailnet
+              HP 10.8.0.2 · laptop 10.8.0.3 · tablet 10.8.0.4
 ```
 
 ### Kenapa rclone di host, bukan di container
@@ -144,11 +149,31 @@ Port di-bind ke `127.0.0.1:8096`. Paparan ke tailnet dilakukan oleh
 `tailscale serve`, bukan dengan membuka port. Tidak ada satu pun port yang
 mendengar di interface publik.
 
-### 4.3 Tailscale
+### 4.3 WireGuard
 
-`tailscale serve --bg --https=443 http://127.0.0.1:8096` memberi URL
-`https://<host>.<tailnet>.ts.net` dengan sertifikat Let's Encrypt asli.
-Tidak ada peringatan sertifikat di client mana pun.
+Server WireGuard di host, `wg-quick@wg0`, subnet `10.8.0.0/24`, VPS di
+`10.8.0.1`, mendengar di UDP 51820.
+
+**Tanpa akun, tanpa login.** Ini alasan utama WireGuard dipilih menggantikan
+Tailscale: satu config per device, dibuat sekali, berlaku selamanya. Tidak
+ada SSO, tidak ada admin console, tidak ada kunci yang kedaluwarsa.
+
+**Split tunnel, disengaja.** Config client memakai `AllowedIPs = 10.8.0.0/24`,
+bukan `0.0.0.0/0`. Tidak ada `MASQUERADE` dan `ip_forward` tetap mati — VPS
+ini bukan gateway internet, hanya tujuan. Full tunnel akan menghabiskan kuota
+512 GB untuk browsing biasa.
+
+**Tanpa TLS, disengaja.** Jellyfin diakses lewat `http://10.8.0.1:8096`.
+WireGuard sudah mengenkripsi seluruh isi tunnel; menambahkan TLS di atasnya
+hanya menambah sertifikat yang harus diperpanjang tanpa menambah keamanan.
+
+**Permukaan serangan.** Satu-satunya port yang mendengar di IP publik adalah
+UDP 51820 dan SSH. WireGuard tidak membalas paket tanpa kunci sah, sehingga
+tidak terlihat oleh pemindai port dan tidak bisa di-brute force.
+
+Device didaftarkan lewat `scripts/add-client.sh <nama>`, yang mengalokasikan
+IP bebas berikutnya, membuat kunci, menerapkan peer tanpa memutus koneksi
+yang sedang berjalan (`wg syncconf`, bukan restart), lalu mencetak QR code.
 
 ---
 
@@ -343,8 +368,9 @@ docs/
 Setup dianggap selesai jika semua ini benar:
 
 1. `systemctl status rclone-b2` aktif, dan `ls /srv/media` menampilkan isi bucket.
-2. Jellyfin bisa dibuka di `https://<host>.<tailnet>.ts.net` dari device lain di tailnet.
-3. `ss -tlnp` menunjukkan **tidak ada** listener di IP publik selain SSH.
+2. Jellyfin bisa dibuka di `http://10.8.0.1:8096` dari device lain di tunnel.
+3. `ss -tlnp` menunjukkan **tidak ada** listener TCP di IP publik selain SSH;
+   satu-satunya port publik lain adalah UDP 51820.
 4. Satu film 1080p diputar dari awal sampai akhir tanpa buffering, dan dashboard
    Jellyfin melaporkan **Direct Play** (bukan Transcode/Remux).
 5. Seek ke tengah film merespons dalam <5 detik.
@@ -378,10 +404,29 @@ tanpa alasan baru.
 | # | Keputusan | Alternatif yang ditolak | Alasan |
 |---|---|---|---|
 | 1 | Repo + skrip, dijalankan sendiri oleh pengguna | Provisioning langsung via SSH | Tidak ada kredensial yang perlu melewati sesi asisten. |
-| 2 | Akses lewat Tailscale saja | Domain publik + Caddy; Cloudflare Tunnel | Nol attack surface. Pengguna tunggal, tidak ada kebutuhan berbagi. |
+| 2 | Akses lewat VPN saja, bukan internet publik | Domain publik + Caddy; Cloudflare Tunnel | Nol attack surface. Pengguna tunggal, tidak ada kebutuhan berbagi. |
 | 3 | Domain Cloudflare tidak dilibatkan | Awan oranye untuk Jellyfin | Cloudflare melarang pengiriman video lewat plan Free/Pro/Business. |
 | 4 | Cloudflare fronting untuk B2 tidak dipakai | `--b2-download-url` via Cloudflare | Egress B2 sudah gratis dengan sendirinya pada skala ini. YAGNI. |
 | 5 | rclone systemd di host, bukan container | rclone dalam Docker | FUSE-in-Docker rapuh; container rclone yang restart bisa membuat Jellyfin mengira seluruh library hilang. |
 | 6 | Upload lewat Cyberduck di Windows | Web UI Backblaze B2 | Web UI B2 dibatasi 500 MB/file dan tidak mendukung upload folder. Rencana awal pengguna secara harfiah tidak bisa dijalankan untuk file film. |
 | 7 | `dir-cache-time` 1 jam + scan Jellyfin tiap 6 jam | `dir-cache-time` 24 jam + cron nightly | Direvisi setelah pengguna menunjukkan Jellyfin sudah punya deteksi file baru. Menurunkan cache membuat fitur bawaan itu berfungsi; cron jadi tidak perlu. |
 | 8 | Transcoding dimatikan, disiplin format dipindah ke pengguna | Transcoding terbatas | 2 vCPU tidak punya pilihan lain. Gagal terang-terangan lebih baik daripada buffering misterius. |
+
+| 9 | WireGuard murni menggantikan Tailscale | Tetap Tailscale; Cloudflare WARP/Zero Trust | Direvisi 2026-08-20 setelah pengguna melaporkan login Tailscale merepotkan. WireGuard tidak punya konsep akun sama sekali: satu config per device, dibuat sekali, berlaku selamanya. Cloudflare WARP ditolak karena tetap menuntut enrolment per device — tidak menyelesaikan masalahnya — sekaligus mengembalikan persoalan ToS video yang sudah kami hindari di keputusan #3. |
+| 10 | Split tunnel, bukan full tunnel | `AllowedIPs = 0.0.0.0/0` | Full tunnel mengalirkan seluruh browsing pengguna lewat kuota 512 GB dan membatasinya di 20 Mbps. VPS ini tujuan, bukan gateway. |
+| 11 | Tanpa TLS di dalam tunnel | Sertifikat self-signed; Let's Encrypt via DNS-01 | WireGuard sudah mengenkripsi seluruh isi tunnel. TLS di atasnya menambah sertifikat yang harus diurus tanpa menambah keamanan. |
+
+### Yang hilang dengan meninggalkan Tailscale
+
+Dicatat jujur, karena keputusan #9 bukan tanpa biaya:
+
+- **NAT traversal.** Tailscale bisa menembus dua sisi yang sama-sama di
+  belakang NAT. WireGuard tidak. Di sini tidak masalah — VPS punya IP publik,
+  jadi client selalu bisa mendial masuk.
+- **Nama DNS.** Hilangnya MagicDNS berarti memakai `10.8.0.1`. Untuk satu
+  server, IP tetap justru lebih mudah diingat daripada nama `.ts.net`.
+- **Manajemen device terpusat.** Menambah atau mencabut device kini lewat
+  SSH, bukan admin console. Untuk pengguna tunggal dengan tiga device, ini
+  pertukaran yang jelas menguntungkan.
+- **Port yang harus dibuka.** UDP 51820 di security group. Dimitigasi oleh
+  sifat WireGuard yang tidak membalas paket tanpa kunci sah.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Primitif bersama. DI-SOURCE, bukan dieksekusi.
-# Sengaja tidak tahu apa-apa soal B2, Jellyfin, atau Tailscale — hanya
+# Sengaja tidak tahu apa-apa soal B2, Jellyfin, atau WireGuard — hanya
 # primitif generik, supaya bisa diuji tanpa server dan tidak berubah jadi
 # tempat sampah.
 

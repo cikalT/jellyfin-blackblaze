@@ -21,10 +21,10 @@ scan pertama sudah terlanjur berjalan dengan setting bawaan.
 
 **Dashboard → Networking**
 - [ ] Enable automatic port mapping (UPnP): **mati**
-- [ ] Published Server URL: `https://<host>.<tailnet>.ts.net`
+- [ ] Published Server URL: `http://10.8.0.1:8096`
 
 **Dashboard → General / Plugins**
-- [ ] DLNA: **mati** (berbasis broadcast, tidak berguna di tailnet, buang RAM)
+- [ ] DLNA: **mati** (berbasis broadcast, tidak lewat tunnel, buang RAM)
 
 ## 2. Saat menambahkan tiap library
 
