@@ -190,7 +190,7 @@ menghabiskan kuota sebulan dalam satu malam.
 | **Chapter image extraction** | Library → lanjutan + Scheduled Tasks | Sama: seek ke banyak titik di seluruh file. |
 | **Real-time monitoring** | Tiap library | FUSE tidak punya inotify yang benar. Memicu rescan berulang. |
 | **Save artwork into media folders** | Library | Mount read-only — akan gagal dan mengotori log. |
-| **Video transcoding** (per user) | User → Playback | Memaksa direct play. Kalau file tidak kompatibel, lebih baik gagal terang-terangan daripada mencekik CPU. |
+| **Video transcoding** (per user) | User → Playback | Encode ulang di 2 vCPU mustahil. Lebih baik gagal terang-terangan daripada mencekik CPU. **Remux tidak termasuk** — lihat 5.2. |
 | **DLNA** | Dashboard → Plugins/Networking | Berbasis broadcast, tidak berguna di tailnet. Menghemat RAM. |
 | **UPnP / automatic port mapping** | Dashboard → Networking | Tidak boleh ada usaha membuka port ke internet. |
 
@@ -204,7 +204,9 @@ menghabiskan kuota sebulan dalam satu malam.
 | Scan media library (scheduled task) | Setiap 6 jam | Dengan `dir-cache-time` 1 jam, ini membuat file baru muncul otomatis dalam <=7 jam tanpa intervensi. Biayanya ~800 panggilan listing/hari, masih di bawah jatah gratis. |
 | Maximum simultaneous streams (per user) | 2 | Pagar pengaman terhadap pemutaran ganda yang tidak disengaja. Tidak diset 1 karena sesi TV yang tidak tertutup rapi bisa mengunci pemutaran berikutnya. |
 | Published server URL | `https://<host>.<tailnet>.ts.net` | Agar client menghasilkan URL yang benar. |
-| Audio transcoding (per user) | **Aktif** | Remux audio murah secara CPU dan menyelamatkan banyak file. Hanya *video* yang dilarang. |
+| Audio transcoding (per user) | **Aktif** | Murah secara CPU dan menyelamatkan banyak file. |
+| **Video remux** (per user) | **Aktif** | Direvisi 2026-08-21 setelah pemutaran ditolak di deployment nyata. Remux hanya membungkus ulang kontainer — video stream tidak disentuh — jadi bebannya mendekati nol. Menyamakannya dengan transcoding menolak file yang sebenarnya sanggup diputar, dengan pesan "Playback of this content is currently restricted" yang tidak menjelaskan apa-apa. |
+| `DOTNET_gcServer=0` | **Wajib** | Server GC .NET mengalokasikan heap per core dan enggan mengembalikannya. Di deployment nyata Jellyfin membengkak ke 1,4 GB dari 2 GB dengan library kosong, mendorong sistem ke swap sampai semuanya merangkak. Workstation GC menurunkannya ke ~600 MB. |
 
 ---
 
@@ -304,6 +306,7 @@ Akses tetap lewat Tailscale saja.
 | OS Debian + paket | ~6 GB |
 | Image & overlay Docker | ~3 GB |
 | Config + metadata + artwork Jellyfin | ~5 GB |
+| *(catatan RAM, bukan disk)* Jellyfin dengan workstation GC | ~600 MB, bukan ~1,4 GB |
 | Cache VFS rclone | 10 GB (batas keras) |
 | Swapfile | 2 GB |
 | Log (journald dibatasi 200 MB, docker json-file 30 MB) | ~1 GB |
@@ -430,3 +433,44 @@ Dicatat jujur, karena keputusan #9 bukan tanpa biaya:
   pertukaran yang jelas menguntungkan.
 - **Port yang harus dibuka.** UDP 51820 di security group. Dimitigasi oleh
   sifat WireGuard yang tidak membalas paket tanpa kunci sah.
+
+---
+
+## 15. Pelajaran dari Deployment Nyata (2026-08-21)
+
+Delapan hal yang hanya muncul saat setup dijalankan sungguhan di VPS, dan
+tidak satu pun terlihat dari pembacaan ulang desain. Dicatat karena
+sebagian membantah apa yang tertulis di bagian-bagian sebelumnya.
+
+| # | Temuan | Gejala yang terlihat | Akar masalah |
+|---|---|---|---|
+| 1 | Awalan `RCLONE_` pada variabel `.env` | `bind: address already in use` di port yang jelas-jelas bebas | rclone mengonsumsi setiap env var `RCLONE_*` sebagai flag. `RCLONE_RC_ADDR` menumpuk dengan `--rc-addr` di ExecStart jadi dua alamat identik. Variabel diganti `RC_ADDR`. |
+| 2 | `fusermount` vs `fusermount3` | ExecStop selalu gagal, mount tertinggal basi | Bootstrap memasang `fuse3`, yang menyediakan `fusermount3`. Biner tanpa angka berasal dari paket `fuse` v2 yang tidak dipasang. |
+| 3 | Lazy unmount meninggalkan proses | Mount hilang tapi port RC tetap dipegang | `fusermount3 -uz` melepas mount seketika tanpa membunuh prosesnya. ExecStartPre kini membunuh yatim, bukan sekadar unmount. |
+| 4 | Unit me-restart selamanya | 110 kali restart; setiap diagnosis berlomba dengan loop | Default `StartLimitBurst=5` dalam 10 detik tidak pernah tercapai kalau `RestartSec` juga 10 detik. Jendela dilebarkan ke 300 detik. |
+| 5 | preflight bergantung pada rclone | `perintah tidak ditemukan: rclone` di server bersih | preflight dijalankan **sebelum** bootstrap memasang rclone. Diganti panggilan langsung ke API B2 lewat curl — sekaligus menghapus cek read-only yang dulu membuktikan diri dengan *menulis* ke bucket pengguna. |
+| 6 | Server GC .NET | RAM 1917/1966 MB, swap 1,5 GB, semuanya merangkak | Jellyfin memegang 1,4 GB dengan library kosong. `DOTNET_gcServer=0` menurunkannya ke ~600 MB. |
+| 7 | Remux disamakan dengan transcoding | *"Playback of this content is currently restricted"* | Ada tiga tingkat, bukan dua. Remux tidak menyentuh video stream dan bebannya mendekati nol. Melarangnya menolak file yang sanggup diputar. |
+| 8 | Firewall template vs instance (Tencent) | Nol paket masuk padahal app WireGuard mengirim | Aturan di halaman *Firewall Templates* Lighthouse tidak berlaku sampai diterapkan ke instance. Panel terlihat seakan sudah benar. |
+
+### Pola yang menyatukan tujuh dari delapan
+
+Semuanya menghasilkan **gejala yang menunjuk ke tempat yang salah**. Port
+yang "terpakai" padahal bebas. Perintah yang "tidak ditemukan" padahal
+memang belum waktunya ada. Pemutaran yang "dibatasi" tanpa menyebut oleh
+apa. Firewall yang "sudah diatur" tapi tidak berlaku.
+
+Konsekuensinya untuk desain, dan ini yang paling berharga dari seluruh
+latihan ini: **pesan kesalahan adalah bagian dari produk.** Setiap
+perbaikan di atas disertai perubahan pesan yang menyebut penyebab
+sesungguhnya, plus assertion yang mengunci pesan itu tetap ada. Tanpa itu,
+orang berikutnya akan mengulang jam-jam yang sama.
+
+### Yang membuat diagnosis akhirnya bergerak
+
+`debug-mount.sh` — yang menjalankan perintah **dari unit terpasang**, bukan
+salinannya — dan tabel diagnosis dua sisi di runbook yang menyandingkan
+`tcpdump` di server dengan baris *Transfer* di app WireGuard. Sebelum kedua
+alat itu ada, tiga perbaikan berturut-turut dilakukan berdasarkan tebakan
+dari gejala, dan hanya satu yang kebetulan relevan.
+

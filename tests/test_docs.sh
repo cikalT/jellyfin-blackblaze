@@ -17,6 +17,13 @@ if [[ -f "$ROOT/docs/jellyfin-settings.md" ]]; then
   for term in Trickplay "chapter" "real time monitoring" "transcoding" "DLNA" "8 Mbps"; do
     assert_contains "checklist setting menyebut '$term'" "$_s" "$term"
   done
+
+  # Remux BUKAN transcoding. Menyamakan keduanya menolak file yang sanggup
+  # diputar server ini, dengan pesan "Playback of this content is currently
+  # restricted" yang tidak menyebut penyebabnya. Terjadi sungguhan.
+  assert_contains "checklist membedakan remux dari transcoding" "$_s" "Remux"
+  assert_ok "checklist mengaktifkan remux, bukan mematikannya" \
+    "grep -qE 'requires conversion \\(remux\\): \\*\\*AKTIF\\*\\*' '$ROOT/docs/jellyfin-settings.md'"
 fi
 
 # Panduan upload harus menyebutkan batas 500 MB — inilah alasan seluruh

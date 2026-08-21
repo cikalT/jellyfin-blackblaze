@@ -2578,3 +2578,29 @@ Keduanya kini dijaga, dan dua assertion mengunci penjagaan itu.
 150 tes hijau, `shellcheck -x` bersih di 8 skrip, `host_ip` hasil resolusi
 Docker terverifikasi `10.8.0.1`. Task 10 tetap menunggu VPS, dengan kriteria
 2 dan 3 diperbarui mengikuti arsitektur baru.
+
+---
+
+## Task 10 — Selesai (2026-08-21)
+
+Delapan kriteria keberhasilan lolos di VPS sungguhan; hasilnya dicatat di
+`docs/operations.md`. Termasuk kriteria 8, tes reboot, yang membuktikan
+pengurutan Docker-setelah-mount-dan-WireGuard bekerja.
+
+Delapan temuan lapangan beserta akar masalahnya ada di bagian 15 spec.
+Tujuh dari delapan punya pola yang sama: **gejalanya menunjuk ke tempat
+yang salah.** Port "terpakai" yang sebenarnya bebas, perintah "tidak
+ditemukan" yang memang belum waktunya ada, pemutaran "dibatasi" tanpa
+menyebut oleh apa, firewall "sudah diatur" yang tidak berlaku.
+
+Konsekuensinya untuk plan mana pun setelah ini: **pesan kesalahan adalah
+bagian dari deliverable, bukan detail implementasi.** Setiap perbaikan di
+sesi ini menambahkan assertion yang mengunci pesannya tetap menyebut
+penyebab sesungguhnya — karena tanpa itu, orang berikutnya mengulang
+jam-jam yang sama.
+
+Satu koreksi terhadap plan ini sendiri: dua penyuntingan tes memakai
+`str.replace` tanpa memverifikasi anchor, sehingga gagal diam-diam dan
+assertion yang saya klaim terpasang ternyata tidak pernah ada. Ketahuan
+karena jumlah tes tidak bertambah. Setiap penyuntingan berikutnya
+memverifikasi anchor dan keluar dengan error kalau tidak ketemu.

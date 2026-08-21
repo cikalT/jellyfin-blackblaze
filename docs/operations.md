@@ -169,3 +169,34 @@ jadi keduanya hidup dengan urutan yang benar. Verifikasi:
 
 Kalau Docker tidak start, biasanya karena mount gagal — itu perilaku yang
 disengaja. Perbaiki mount-nya dulu, Docker akan menyusul.
+
+## Hasil verifikasi
+
+Diverifikasi 2026-08-21 di VPS Tencent Lighthouse (2 vCPU, 2 GB, Debian 12).
+
+| # | Kriteria | Hasil |
+|---|---|---|
+| 1 | Mount aktif, bucket terbaca | lolos |
+| 2 | Jellyfin bisa dibuka dari device di tunnel | lolos — `http://10.8.0.1:8096` |
+| 3 | Tidak ada listener publik | lolos — hanya TCP 22 dan UDP 51820 |
+| 4 | Pemutaran berjalan | lolos setelah remux diaktifkan |
+| 5 | Respons server | lolos — HTTP 200 dalam 4 ms lewat tunnel |
+| 6 | quota-check melaporkan dengan benar | lolos |
+| 7 | File baru muncul setelah refresh | lolos — `vfs/refresh` + scan Jellyfin |
+| 8 | Bertahan setelah reboot | **lolos** — seluruh tumpukan naik sendiri dengan urutan benar |
+
+Pemakaian sumber daya saat idle dengan library kecil: **RAM 623 MB dari
+1966 MB, swap 0, load 0.16.** Angka ini setelah `DOTNET_gcServer=0`;
+sebelumnya 1917 MB terpakai dengan swap 1,5 GB dan load di atas 3.
+
+### Catatan lapangan
+
+- **`.bzEmpty`** di dalam folder adalah penanda buatan Backblaze. B2 tidak
+  punya folder sungguhan, jadi file kosong dibuat agar foldernya terlihat
+  di antarmuka. Jellyfin mengabaikannya.
+- **Pemilih folder Jellyfin menampilkan path di dalam container**, bukan
+  path VPS. Yang benar `/media/<folder>`, bukan `/srv/media/<folder>`.
+- **Chrome menaikkan alamat ke `https://` sendiri.** Ketik `http://`
+  lengkap, atau pakai app Jellyfin yang tidak melakukan itu.
+- **Dua video dalam satu folder** di library bertipe *Movies* akan dibaca
+  sebagai dua versi dari judul yang sama. Satu folder = satu judul.

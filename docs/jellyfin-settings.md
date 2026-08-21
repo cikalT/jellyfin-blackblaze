@@ -93,10 +93,25 @@ Untuk **masing-masing** library, di layar penambahan:
 **Dashboard → Users → [user] → Playback**
 
 - [ ] Allow video playback that requires transcoding: **mati**
-- [ ] Allow video playback that requires conversion (remux): **mati**
+- [ ] Allow video playback that requires conversion (remux): **AKTIF**
 - [ ] Allow audio playback that requires transcoding: **aktif**
-      *Remux audio murah secara CPU dan menyelamatkan banyak file. Hanya
-      video yang dilarang.*
+
+Jellyfin punya **tiga** tingkat pemrosesan, bukan dua. Menyamakan remux
+dengan transcoding adalah kesalahan yang mahal — ia menolak file yang
+sebenarnya sanggup diputar server ini, dengan pesan
+*"Playback of this content is currently restricted"* yang tidak
+menjelaskan apa-apa.
+
+| Mode | Yang dikerjakan server | Beban CPU | Boleh? |
+|---|---|---|---|
+| Direct Play | meneruskan byte apa adanya | nol | ya |
+| **Remux** / Direct Stream | membungkus ulang kontainer, video stream tidak disentuh | sangat ringan | **ya** |
+| Transcode | encode ulang video | berat | tidak |
+
+Remux tidak menyentuh gambar sama sekali — hanya memindahkan stream yang
+sama ke kontainer lain, mis. MKV ke MP4. Di 2 vCPU itu tidak terasa,
+sementara manfaatnya besar: banyak file yang gagal Direct Play sebenarnya
+hanya butuh dibungkus ulang.
 - [ ] Internet streaming bitrate limit: **8 Mbps**
       *Link hanya 20 Mbps. Tanpa batas ini, client meminta lebih dari yang
       bisa dilayani dan hasilnya buffering, bukan penurunan kualitas.*
