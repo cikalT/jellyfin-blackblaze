@@ -31,6 +31,9 @@ if [[ -f "$COMPOSE" ]]; then
   # Batas memori wajib: 2 GB RAM tanpa batas berarti OOM killer bisa
   # membunuh sshd dan mengunci kita dari server.
   assert_contains "batas memori diset"            "$_c" "mem_limit:"
+  # Server GC .NET mengalokasikan heap per core dan tidak mengembalikannya.
+  # Di 2 GB RAM itu mendorong sistem ke swap sampai semuanya merangkak.
+  assert_contains "workstation GC .NET dipaksa"   "$_c" "DOTNET_gcServer"
 
   # Rotasi log wajib: disk hanya 40 GB.
   assert_contains "rotasi log dikonfigurasi"      "$_c" "max-size:"

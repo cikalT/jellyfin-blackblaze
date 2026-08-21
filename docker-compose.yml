@@ -20,6 +20,13 @@ services:
       # menarik ratusan MB per judul hanya untuk mendeteksi codec.
       JELLYFIN_FFmpeg__probesize: 10M
       JELLYFIN_FFmpeg__analyzeduration: 5M
+      # .NET "server GC" mengalokasikan heap terpisah per core dan sangat
+      # enggan mengembalikan memori ke OS. Di box 2 GB efeknya parah:
+      # Jellyfin membengkak sampai ~1.4 GB meski library masih kosong,
+      # mendorong seluruh sistem ke swap dan membuat semuanya terasa lambat.
+      # Workstation GC memakai jauh lebih sedikit memori dengan biaya
+      # throughput yang tidak relevan di sini — kita tidak transcoding.
+      DOTNET_gcServer: "0"
 
     # HANYA alamat WireGuard. Satu-satunya pintu masuk adalah tunnel.
     # Mengubah ini jadi 0.0.0.0 mengekspos Jellyfin ke internet publik.
