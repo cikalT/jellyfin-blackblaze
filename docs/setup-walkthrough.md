@@ -105,8 +105,23 @@ Tambahkan aturan inbound:
 | TCP | 22 | IP rumahmu, kalau bisa | SSH |
 | **UDP** | **51820** | `0.0.0.0/0` | WireGuard |
 
-Perhatikan **UDP**, bukan TCP — salah pilih di sini adalah penyebab nomor
-satu "sudah setup tapi tidak bisa connect".
+Dua jebakan di langkah ini, dan keduanya membuat panel terlihat seakan
+aturannya sudah benar:
+
+**1. Harus UDP, bukan TCP.** WireGuard murni UDP; aturan TCP tidak menolong
+sama sekali.
+
+**2. Harus di firewall INSTANCE, bukan di firewall TEMPLATE.** Lighthouse
+punya halaman *Firewall Templates* yang terpisah. Aturan yang dibuat di sana
+**tidak berlaku** sampai template-nya diterapkan ke instance — dialognya
+bahkan menyatakan itu sendiri: *"The change of template rules has no impact
+on the existing firewall rules."* Jalur yang benar:
+
+    Lighthouse → Instances → klik instance → tab Firewall → Add rule
+
+Tab Firewall milik instance itu harus menampilkan baris UDP 51820
+berdampingan dengan TCP 22 yang sudah ada. Kalau di sana hanya ada TCP 22,
+aturan UDP-mu belum pernah aktif.
 
 Membuka UDP 51820 ke publik terdengar berisiko, tapi WireGuard tidak
 membalas paket yang tidak membawa kunci sah. Bagi pemindai port, port itu

@@ -62,6 +62,10 @@ if [[ -f "$ROOT/docs/client-setup.md" ]]; then
   assert_contains "panduan client menyebut cara tambah device" "$_c" "add-client.sh"
   # Tidak boleh ada sisa instruksi Tailscale yang menyesatkan.
   assert_fail "tidak ada sisa instruksi Tailscale" "grep -qi 'tailscale' '$ROOT/docs/client-setup.md'"
+  # Chrome menaikkan alamat ke https:// sendiri, dan Jellyfin di sini
+  # melayani HTTP polos. Errornya ("sent an invalid response") terlihat
+  # seperti kerusakan padahal justru bukti tunnel sudah jalan.
+  assert_contains "panduan client menjelaskan http vs https" "$_c" "sent an invalid response"
 fi
 
 # Panduan setup adalah dokumen yang diikuti sambil duduk di terminal.
@@ -71,6 +75,9 @@ if [[ -f "$ROOT/docs/setup-walkthrough.md" ]]; then
   _w="$(cat "$ROOT/docs/setup-walkthrough.md")"
   # UDP, bukan TCP. Penyebab nomor satu "tidak bisa connect".
   assert_contains "panduan menegaskan UDP 51820"          "$_w" "UDP"
+  # Aturan di firewall TEMPLATE Lighthouse tidak berlaku sampai diterapkan
+  # ke instance. Panel terlihat seakan sudah benar; paketnya tetap dibuang.
+  assert_contains "panduan membedakan firewall instance vs template" "$_w" "Firewall Templates"
   # keyID, bukan Account ID. Penyebab 401 yang membingungkan.
   assert_contains "panduan memperingatkan keyID vs Account ID" "$_w" "Account ID"
   # Lifecycle rule: satu klik, mudah dilupakan, ditagih selamanya.

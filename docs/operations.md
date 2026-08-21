@@ -79,6 +79,24 @@ Penyebab paling umum, berurutan:
 3. **rclone dimatikan OOM killer.** `journalctl -k | grep -i oom`.
    Turunkan `--buffer-size` di unit systemd.
 
+## Tidak ada paket yang sampai ke server
+
+Diagnosis tercepat, dua sisi sekaligus:
+
+    timeout 30 tcpdump -ni any udp port 51820
+
+Sambil itu berjalan, lihat baris **Transfer** di app WireGuard HP:
+
+| tcpdump | app HP | Artinya |
+|---|---|---|
+| 0 paket | `sent` bertambah | HP mengirim, paket dibuang **sebelum** sampai VM. Firewall cloud. |
+| 0 paket | `sent` tetap 0 | HP tidak mengirim. Tunnel tidak benar-benar aktif. |
+| ada paket | `received` tetap 0 | Paket masuk tapi balasan tidak kembali. Routing di sisi server. |
+
+Kombinasi pertama adalah yang paling sering, dan hampir selalu berarti
+aturan UDP dibuat di *firewall template* Lighthouse, bukan di firewall
+instance-nya. Lihat `setup-walkthrough.md` bagian 2.
+
 ## Tidak ada device yang bisa connect
 
     sudo wg show

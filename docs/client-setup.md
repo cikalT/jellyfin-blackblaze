@@ -50,6 +50,26 @@ Aktifkan tunnel, lalu buka:
 
     http://10.8.0.1:8096
 
+**Awalan `http://` harus diketik lengkap.** Chrome otomatis menaikkan alamat
+yang kamu ketik ke `https://`, dan Jellyfin di sini melayani HTTP polos.
+Gejalanya: *"This site can't provide a secure connection — 10.8.0.1 sent an
+invalid response"*. Itu bukan kerusakan — justru bukti tunnel-mu sudah jalan
+dan server menjawab.
+
+Kalau Chrome tetap memaksa: **Settings → Privacy and security → Always use
+secure connections → matikan**.
+
+Lebih baik lagi, **pakai app Jellyfin, bukan browser.** Di layar *Add Server*
+isi `http://10.8.0.1:8096`. App-nya tidak memaksa HTTPS, dan pemutarannya
+jauh lebih baik.
+
+### Membedakan dua error yang mirip
+
+| Pesan browser | Artinya |
+|---|---|
+| *took too long to respond* | Paket tidak sampai. Tunnel atau firewall. |
+| *sent an invalid response* / *can't provide a secure connection* | Paket **sampai** dan dijawab. Tunnel sehat, kamu cuma salah skema — pakai `http://`. |
+
 Alamat ini **tidak pernah berubah** — tidak peduli kamu di rumah, di kantor,
 atau pakai data seluler. Masukkan alamat yang sama di app Jellyfin sebagai
 server address.
