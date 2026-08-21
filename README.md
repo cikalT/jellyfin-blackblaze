@@ -39,7 +39,7 @@ security group Tencent, daftarkan device pertama dengan
 - **[Panduan setup lengkap](docs/setup-walkthrough.md) — mulai dari sini**, nol sampai menonton
 - [Checklist setting Jellyfin](docs/jellyfin-settings.md) — **kerjakan ini**, bukan opsional
 - [Aturan format media](docs/media-guidelines.md) — apa yang bisa dan tidak bisa diputar
-- [Upload dari Windows](docs/upload-windows.md) — setup Cyberduck
+- [Upload media](docs/upload-media.md) — Cyberduck atau rclone, macOS dan Windows
 - [Menghubungkan device](docs/client-setup.md) — alamat apa yang dimasukkan di app Jellyfin
 - [Runbook operasional](docs/operations.md) — saat ada yang rusak
 

@@ -4,7 +4,7 @@
 ROOT="$(cd .. && pwd)"
 
 for f in README.md docs/jellyfin-settings.md docs/media-guidelines.md \
-         docs/upload-windows.md docs/client-setup.md docs/operations.md \
+         docs/upload-media.md docs/client-setup.md docs/operations.md \
          docs/setup-walkthrough.md; do
   assert_ok "$f ada" "[[ -f '$ROOT/$f' ]]"
 done
@@ -28,10 +28,19 @@ fi
 
 # Panduan upload harus menyebutkan batas 500 MB — inilah alasan seluruh
 # rencana upload awal diganti, dan tanpa itu orang akan mencoba web UI lagi.
-if [[ -f "$ROOT/docs/upload-windows.md" ]]; then
-  _u="$(cat "$ROOT/docs/upload-windows.md")"
+if [[ -f "$ROOT/docs/upload-media.md" ]]; then
+  _u="$(cat "$ROOT/docs/upload-media.md")"
   assert_contains "panduan upload menjelaskan batas 500 MB" "$_u" "500 MB"
   assert_contains "panduan upload menyebut Cyberduck"       "$_u" "Cyberduck"
+  # Panduan harus melayani kedua platform, bukan salah satu saja.
+  assert_contains "panduan mencakup macOS" "$_u" "macOS"
+  assert_contains "panduan mencakup Windows" "$_u" "Windows"
+  # rclone sync MENGHAPUS file di tujuan yang tidak ada di sumber. Untuk
+  # perintah yang diarahkan ke library orang, perbedaan ini harus eksplisit.
+  assert_contains "panduan memperingatkan sync vs copy" "$_u" "Jangan pakai"
+  # Kunci tulis dan kunci server sengaja dipisah; kalau ini hilang dari
+  # dokumentasi, orang akan memakai kunci read-only lalu bingung.
+  assert_contains "panduan menegaskan pakai kunci tulis" "$_u" "bisa menulis"
 fi
 
 # Aturan format media adalah kontrak dengan pengguna; harus eksplisit.

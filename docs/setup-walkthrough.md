@@ -339,7 +339,12 @@ Aturan lengkap ada di [media-guidelines.md](media-guidelines.md).
 
 ### 6.2 Pasang Cyberduck
 
-Unduh dari [cyberduck.io](https://cyberduck.io) — gratis, ada versi Windows.
+macOS: `brew install --cask cyberduck` · Windows: unduh dari
+[cyberduck.io](https://cyberduck.io). Gratis di keduanya.
+
+Untuk mengunggah banyak file sekaligus, `rclone` di komputermu jauh lebih
+cepat dan bisa dilanjutkan kalau koneksi putus — caranya ada di
+[upload-media.md](upload-media.md).
 
 **Open Connection** → pilih **Backblaze B2** → isi dengan kunci
 **read-write** (`cyberduck-upload`, bukan yang read-only) → **Connect** →
